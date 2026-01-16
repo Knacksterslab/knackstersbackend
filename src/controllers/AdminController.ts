@@ -1,0 +1,121 @@
+/**
+ * Admin Controller
+ * Handles admin API requests
+ */
+
+import { Response } from 'express';
+import { AuthRequest } from '../types';
+import AdminUserService from '../services/AdminUserService';
+import ActivityLogService from '../services/ActivityLogService';
+import { UserRole, UserStatus } from '@prisma/client';
+import { ApiResponse } from '../utils/response';
+import { logger } from '../utils/logger';
+
+export class AdminController {
+  private getUserId(req: AuthRequest, res: Response): string | null {
+    const userId = req.session?.userId;
+    if (!userId) {
+      ApiResponse.unauthorized(res);
+      return null;
+    }
+    return userId;
+  }
+
+  async getPlatformStats(req: AuthRequest, res: Response) {
+    try {
+      const adminId = this.getUserId(req, res);
+      if (!adminId) return;
+
+      const stats = await AdminUserService.getPlatformStats();
+      return ApiResponse.success(res, stats);
+    } catch (error: any) {
+      logger.error('getPlatformStats failed', error);
+      return ApiResponse.error(res, 'Failed to fetch platform statistics');
+    }
+  }
+
+  async getUsers(req: AuthRequest, res: Response) {
+    try {
+      const adminId = this.getUserId(req, res);
+      if (!adminId) return;
+
+      const { role, status, search, limit, offset } = req.query;
+      const filters: any = {};
+      if (role) filters.role = role as UserRole;
+      if (status) filters.status = status as UserStatus;
+      if (search) filters.search = search as string;
+      if (limit) filters.limit = parseInt(limit as string);
+      if (offset) filters.offset = parseInt(offset as string);
+
+      const result = await AdminUserService.getAllUsers(filters);
+      return ApiResponse.success(res, result);
+    } catch (error: any) {
+      logger.error('getUsers failed', error);
+      return ApiResponse.error(res, 'Failed to fetch users');
+    }
+  }
+
+  async getUserDetails(req: AuthRequest, res: Response) {
+    try {
+      const adminId = this.getUserId(req, res);
+      if (!adminId) return;
+
+      const user = await AdminUserService.getUserDetails(req.params.userId);
+      if (!user) return ApiResponse.notFound(res, 'User');
+
+      return ApiResponse.success(res, user);
+    } catch (error: any) {
+      logger.error('getUserDetails failed', error);
+      return ApiResponse.error(res, 'Failed to fetch user details');
+    }
+  }
+
+  async updateUser(req: AuthRequest, res: Response) {
+    try {
+      const adminId = this.getUserId(req, res);
+      if (!adminId) return;
+
+      const user = await AdminUserService.updateUser(req.params.userId, req.body);
+      return ApiResponse.success(res, user);
+    } catch (error: any) {
+      logger.error('updateUser failed', error);
+      return ApiResponse.error(res, 'Failed to update user');
+    }
+  }
+
+  async deleteUser(req: AuthRequest, res: Response) {
+    try {
+      const adminId = this.getUserId(req, res);
+      if (!adminId) return;
+
+      await AdminUserService.deleteUser(req.params.userId);
+      return ApiResponse.success(res, { message: 'User deleted successfully' });
+    } catch (error: any) {
+      logger.error('deleteUser failed', error);
+      return ApiResponse.error(res, 'Failed to delete user');
+    }
+  }
+
+  async getActivityLogs(req: AuthRequest, res: Response) {
+    try {
+      const adminId = this.getUserId(req, res);
+      if (!adminId) return;
+
+      const { userId, activityType, limit, offset } = req.query;
+      const filters: any = {};
+      if (userId) filters.userId = userId as string;
+      if (activityType) filters.activityType = activityType as string;
+      if (limit) filters.limit = parseInt(limit as string);
+      if (offset) filters.offset = parseInt(offset as string);
+
+      // Use getAllActivities instead of getActivityLogs
+      const logs = await ActivityLogService.getAllActivities(filters);
+      return ApiResponse.success(res, logs);
+    } catch (error: any) {
+      logger.error('getActivityLogs failed', error);
+      return ApiResponse.error(res, 'Failed to fetch activity logs');
+    }
+  }
+}
+
+export default new AdminController();

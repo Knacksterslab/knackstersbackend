@@ -1,0 +1,23 @@
+/**
+ * Client Tasks Routes
+ * /api/client/tasks/*
+ */
+
+import { Router } from 'express';
+import { requireAuth } from '../../middleware/auth';
+import TaskController from '../../controllers/TaskController';
+
+const router = Router();
+
+// All routes require authentication
+router.use(requireAuth);
+
+router.get('/', (req, res) => TaskController.getTasks(req as any, res));
+router.post('/', (req, res) => TaskController.createTask(req as any, res));
+router.get('/:id', (req, res) => TaskController.getTask(req as any, res));
+router.patch('/:id', (req, res) => TaskController.updateTask(req as any, res));
+router.delete('/:id', (req, res) => TaskController.deleteTask(req as any, res));
+router.patch('/:id/assign', (req, res) => TaskController.assignTask(req as any, res));
+router.get('/:projectId/stats', (req, res) => TaskController.getTaskStats(req as any, res));
+
+export default router;

@@ -1,0 +1,758 @@
+// Prisma schema for Knacksters Platform
+// Documentation: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "windows"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  TALENT
+  CLIENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum SubscriptionPlan {
+  STARTER
+  GROWTH
+  ENTERPRISE
+  CUSTOM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PAUSED
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum PaymentMethodType {
+  CARD
+  BANK_ACCOUNT
+  PAYPAL
+}
+
+enum CardBrand {
+  VISA
+  MASTERCARD
+  AMEX
+  DISCOVER
+}
+
+enum TransactionType {
+  SUBSCRIPTION_RENEWAL
+  ADDITIONAL_HOURS
+  ONE_TIME_PURCHASE
+  REFUND
+  CREDIT_ADJUSTMENT
+}
+
+enum PaymentStatus {
+  PAID
+  UNPAID
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum ProjectStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+  ON_HOLD
+}
+
+enum TaskStatus {
+  PENDING
+  ACTIVE
+  IN_REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum PriorityLevel {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum NotificationType {
+  WARNING
+  SUCCESS
+  INFO
+  ALERT
+  ERROR
+}
+
+enum MeetingType {
+  MEET_AND_GREET
+  PROJECT_KICKOFF
+  STATUS_UPDATE
+  REVIEW
+  SUPPORT
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum MessageType {
+  TEXT
+  FILE
+  SYSTEM
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_ON_CLIENT
+  RESOLVED
+  CLOSED
+}
+
+enum ActivityType {
+  USER_LOGIN
+  TASK_CREATED
+  TASK_COMPLETED
+  HOURS_LOGGED
+  PROJECT_CREATED
+  INVOICE_PAID
+  MEETING_SCHEDULED
+  FILE_UPLOADED
+}
+
+enum EmploymentStatus {
+  FULL_TIME_EMPLOYED
+  PART_TIME_EMPLOYED
+  SELF_EMPLOYED
+  BETWEEN_OPPORTUNITIES
+}
+
+enum WorkType {
+  FULL_TIME
+  PART_TIME
+  FREELANCE_CONTRACT
+  FLEXIBLE
+}
+
+enum TalentApplicationStatus {
+  PENDING_REVIEW
+  INTERVIEW_SCHEDULED
+  APPROVED
+  REJECTED
+  ONBOARDING
+  ACTIVE
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+model User {
+  id                String     @id @default(uuid())
+  email             String     @unique
+  passwordHash      String?    @map("password_hash")
+  role              UserRole   @default(CLIENT)
+  status            UserStatus @default(ACTIVE)
+  
+  // Profile
+  firstName         String?    @map("first_name")
+  lastName          String?    @map("last_name")
+  fullName          String?    @map("full_name")
+  companyName       String?    @map("company_name")
+  phone             String?
+  avatarUrl         String?    @map("avatar_url")
+  
+  // SuperTokens integration
+  supertokensUserId String?    @unique @map("supertokens_user_id")
+
+  // Stripe integration
+  stripeCustomerId  String?    @unique @map("stripe_customer_id")
+
+  // Onboarding & User Preferences
+  onboardingTips       Json?     @default("{}") @map("onboarding_tips")
+  isOnboardingComplete Boolean   @default(false) @map("is_onboarding_complete")
+  
+  // Account manager relationship (self-referencing)
+  accountManagerId  String?    @map("account_manager_id")
+  accountManager    User?      @relation("AccountManager", fields: [accountManagerId], references: [id], onDelete: SetNull)
+  managedClients    User[]     @relation("AccountManager")
+  
+  // Timestamps
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+  lastLoginAt       DateTime?  @map("last_login_at")
+  
+  // Relations
+  subscriptions          Subscription[]
+  paymentMethods         PaymentMethod[]
+  invoices               Invoice[]
+  hoursBalances          HoursBalance[]
+  clientProjects         Project[]        @relation("ClientProjects")
+  createdProjects        Project[]        @relation("ProjectCreator")
+  projectAssignments     ProjectAssignee[]
+  assignedTasks          Task[]           @relation("TaskAssignee")
+  createdTasks           Task[]           @relation("TaskCreator")
+  timeLogs               TimeLog[]        @relation("TimeLogUser")
+  clientTimeLogs         TimeLog[]        @relation("TimeLogClient")
+  approvedTimeLogs       TimeLog[]        @relation("TimeLogApprover")
+  notifications          Notification[]
+  clientMeetings         Meeting[]        @relation("ClientMeetings")
+  managerMeetings        Meeting[]        @relation("ManagerMeetings")
+  clientConversations    Conversation[]   @relation("ClientConversations")
+  managerConversations   Conversation[]   @relation("ManagerConversations")
+  messages               Message[]
+  supportTickets         SupportTicket[]  @relation("TicketUser")
+  assignedTickets        SupportTicket[]  @relation("TicketAssignee")
+  resolvedTickets        SupportTicket[]  @relation("TicketResolver")
+  activityLogs           ActivityLog[]
+  talentProfile          TalentProfile?
+
+  @@map("users")
+  @@index([email])
+  @@index([role])
+  @@index([supertokensUserId])
+  @@index([accountManagerId])
+}
+
+model Subscription {
+  id                  String              @id @default(uuid())
+  userId              String              @map("user_id")
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  plan                SubscriptionPlan
+  status              SubscriptionStatus  @default(ACTIVE)
+  billingInterval     BillingInterval     @default(MONTHLY) @map("billing_interval")
+  
+  // Pricing
+  priceAmount         Decimal             @map("price_amount") @db.Decimal(10, 2)
+  currency            String              @default("USD")
+  
+  // Hours allocation
+  monthlyHours        Int                 @map("monthly_hours")
+  extraHoursPurchased Int                 @default(0) @map("extra_hours_purchased")
+  
+  // Dates
+  startDate           DateTime            @map("start_date") @db.Date
+  currentPeriodStart  DateTime            @map("current_period_start") @db.Date
+  currentPeriodEnd    DateTime            @map("current_period_end") @db.Date
+  nextBillingDate     DateTime?           @map("next_billing_date") @db.Date
+  cancelledAt         DateTime?           @map("cancelled_at")
+  
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+  
+  // Relations
+  invoices            Invoice[]
+  hoursBalances       HoursBalance[]
+
+  @@map("subscriptions")
+  @@index([userId])
+  @@index([status])
+  @@index([nextBillingDate])
+}
+
+model PaymentMethod {
+  id                     String             @id @default(uuid())
+  userId                 String             @map("user_id")
+  user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type                   PaymentMethodType
+  isDefault              Boolean            @default(false) @map("is_default")
+  
+  // Card details
+  cardBrand              CardBrand?         @map("card_brand")
+  cardLastFour           String?            @map("card_last_four")
+  cardExpMonth           Int?               @map("card_exp_month")
+  cardExpYear            Int?               @map("card_exp_year")
+  
+  // Payment processor
+  stripePaymentMethodId  String?            @map("stripe_payment_method_id")
+  billingEmail           String?            @map("billing_email")
+  
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+  
+  // Relations
+  invoices               Invoice[]
+
+  @@map("payment_methods")
+  @@index([userId])
+}
+
+model Invoice {
+  id                     String          @id @default(uuid())
+  invoiceNumber          String          @unique @map("invoice_number")
+  userId                 String          @map("user_id")
+  user                   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionId         String?         @map("subscription_id")
+  subscription           Subscription?   @relation(fields: [subscriptionId], references: [id])
+  
+  transactionType        TransactionType @map("transaction_type")
+  description            String?
+  
+  // Amounts
+  subtotal               Decimal         @db.Decimal(10, 2)
+  tax                    Decimal         @default(0) @db.Decimal(10, 2)
+  total                  Decimal         @db.Decimal(10, 2)
+  currency               String          @default("USD")
+  
+  // Hours
+  hoursPurchased         Int?            @map("hours_purchased")
+  
+  // Payment info
+  status                 PaymentStatus   @default(UNPAID)
+  paymentMethodId        String?         @map("payment_method_id")
+  paymentMethod          PaymentMethod?  @relation(fields: [paymentMethodId], references: [id])
+  paymentMethodDisplay   String?         @map("payment_method_display")
+  
+  // Dates
+  invoiceDate            DateTime        @map("invoice_date") @db.Date
+  dueDate                DateTime?       @map("due_date") @db.Date
+  paidAt                 DateTime?       @map("paid_at")
+  
+  // Stripe
+  stripeInvoiceId        String?         @map("stripe_invoice_id")
+  stripePaymentIntentId  String?         @map("stripe_payment_intent_id")
+  
+  // PDF
+  pdfUrl                 String?         @map("pdf_url")
+  
+  createdAt              DateTime        @default(now()) @map("created_at")
+  updatedAt              DateTime        @updatedAt @map("updated_at")
+
+  @@map("invoices")
+  @@index([userId])
+  @@index([status])
+  @@index([invoiceDate(sort: Desc)])
+  @@index([invoiceNumber])
+}
+
+model HoursBalance {
+  id                    String       @id @default(uuid())
+  userId                String       @map("user_id")
+  user                  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionId        String?      @map("subscription_id")
+  subscription          Subscription? @relation(fields: [subscriptionId], references: [id])
+  
+  // Period
+  periodStart           DateTime     @map("period_start") @db.Date
+  periodEnd             DateTime     @map("period_end") @db.Date
+  
+  // Hours allocation
+  allocatedHours        Int          @map("allocated_hours")
+  bonusHours            Int          @default(0) @map("bonus_hours")
+  extraPurchasedHours   Int          @default(0) @map("extra_purchased_hours")
+  
+  // Usage
+  hoursUsed             Decimal      @default(0) @map("hours_used") @db.Decimal(10, 2)
+  
+  // Rollover
+  rolloverHours         Decimal      @default(0) @map("rollover_hours") @db.Decimal(10, 2)
+  
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+
+  @@map("hours_balance")
+  @@unique([userId, periodStart])
+  @@index([userId])
+  @@index([periodStart, periodEnd])
+}
+
+model Project {
+  id              String            @id @default(uuid())
+  projectNumber   String            @unique @map("project_number")
+  clientId        String            @map("client_id")
+  client          User              @relation("ClientProjects", fields: [clientId], references: [id], onDelete: Cascade)
+  
+  title           String
+  description     String?
+  
+  status          ProjectStatus     @default(NOT_STARTED)
+  priority        PriorityLevel     @default(MEDIUM)
+  
+  // Dates
+  startDate       DateTime?         @map("start_date") @db.Date
+  dueDate         DateTime?         @map("due_date") @db.Date
+  completedAt     DateTime?         @map("completed_at")
+  
+  // Budget
+  estimatedHours  Decimal?          @map("estimated_hours") @db.Decimal(10, 2)
+  
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  createdById     String?           @map("created_by")
+  createdBy       User?             @relation("ProjectCreator", fields: [createdById], references: [id])
+  
+  // Relations
+  assignees       ProjectAssignee[]
+  tasks           Task[]
+  timeLogs        TimeLog[]
+  supportTickets  SupportTicket[]
+
+  @@map("projects")
+  @@index([clientId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model ProjectAssignee {
+  id          String    @id @default(uuid())
+  projectId   String    @map("project_id")
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId      String    @map("user_id")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  role        String?
+  assignedAt  DateTime  @default(now()) @map("assigned_at")
+
+  @@map("project_assignees")
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+}
+
+model Task {
+  id               String        @id @default(uuid())
+  taskNumber       String        @unique @map("task_number")
+  projectId        String        @map("project_id")
+  project          Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  name             String
+  description      String?
+  taskType         String?       @map("task_type")
+  
+  status           TaskStatus    @default(PENDING)
+  priority         PriorityLevel @default(MEDIUM)
+  
+  // Assignment
+  assignedToId     String?       @map("assigned_to")
+  assignedTo       User?         @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  assignedAt       DateTime?     @map("assigned_at")
+  
+  // Dates
+  startDate        DateTime?     @map("start_date")
+  dueDate          DateTime?     @map("due_date")
+  completedAt      DateTime?     @map("completed_at")
+  
+  // Time tracking
+  estimatedMinutes Int?          @map("estimated_minutes")
+  loggedMinutes    Decimal       @default(0) @map("logged_minutes") @db.Decimal(10, 2)
+  
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+  createdById      String?       @map("created_by")
+  createdBy        User?         @relation("TaskCreator", fields: [createdById], references: [id])
+  
+  // Relations
+  timeLogs         TimeLog[]
+  supportTickets   SupportTicket[]
+
+  @@map("tasks")
+  @@index([projectId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model TimeLog {
+  id              String    @id @default(uuid())
+  taskId          String    @map("task_id")
+  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId          String    @map("user_id")
+  user            User      @relation("TimeLogUser", fields: [userId], references: [id], onDelete: Cascade)
+  projectId       String    @map("project_id")
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  clientId        String    @map("client_id")
+  client          User      @relation("TimeLogClient", fields: [clientId], references: [id])
+  
+  // Time tracking
+  startTime       DateTime  @map("start_time")
+  endTime         DateTime? @map("end_time")
+  durationMinutes Decimal?  @map("duration_minutes") @db.Decimal(10, 2)
+  
+  // Details
+  description     String?
+  isBillable      Boolean   @default(true) @map("is_billable")
+  isApproved      Boolean   @default(false) @map("is_approved")
+  approvedById    String?   @map("approved_by")
+  approvedBy      User?     @relation("TimeLogApprover", fields: [approvedById], references: [id])
+  approvedAt      DateTime? @map("approved_at")
+  
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("time_logs")
+  @@index([taskId])
+  @@index([userId])
+  @@index([projectId])
+  @@index([clientId])
+  @@index([startTime])
+}
+
+model Notification {
+  id               String           @id @default(uuid())
+  userId           String           @map("user_id")
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type             NotificationType
+  
+  title            String
+  message          String
+  
+  // Related entities
+  relatedProjectId String?          @map("related_project_id")
+  relatedTaskId    String?          @map("related_task_id")
+  
+  // Actions
+  actionUrl        String?          @map("action_url")
+  actionLabel      String?          @map("action_label")
+  
+  // Status
+  isRead           Boolean          @default(false) @map("is_read")
+  readAt           DateTime?        @map("read_at")
+  
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  @@map("notifications")
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([createdAt(sort: Desc)])
+}
+
+model Meeting {
+  id                     String        @id @default(uuid())
+  clientId               String        @map("client_id")
+  client                 User          @relation("ClientMeetings", fields: [clientId], references: [id], onDelete: Cascade)
+  accountManagerId       String?       @map("account_manager_id")
+  accountManager         User?         @relation("ManagerMeetings", fields: [accountManagerId], references: [id])
+  
+  type                   MeetingType
+  title                  String
+  description            String?
+  
+  // Scheduling
+  scheduledAt            DateTime      @map("scheduled_at")
+  durationMinutes        Int           @default(30) @map("duration_minutes")
+  timezone               String        @default("UTC")
+  
+  status                 MeetingStatus @default(SCHEDULED)
+  
+  // Video call integration
+  videoProvider          String?       @default("daily") @map("video_provider")
+  videoRoomUrl           String?       @map("video_room_url")
+  videoRoomId            String?       @map("video_room_id")
+  recordingUrl           String?       @map("recording_url")
+  
+  // Calendar
+  googleCalendarEventId  String?       @map("google_calendar_event_id")
+  
+  // Attendees (JSON)
+  attendees              Json?
+  
+  // Notes
+  notes                  String?
+  completedAt            DateTime?     @map("completed_at")
+  
+  createdAt              DateTime      @default(now()) @map("created_at")
+  updatedAt              DateTime      @updatedAt @map("updated_at")
+
+  @@map("meetings")
+  @@index([clientId])
+  @@index([accountManagerId])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+model Conversation {
+  id                String    @id @default(uuid())
+  clientId          String    @map("client_id")
+  client            User      @relation("ClientConversations", fields: [clientId], references: [id], onDelete: Cascade)
+  accountManagerId  String    @map("account_manager_id")
+  accountManager    User      @relation("ManagerConversations", fields: [accountManagerId], references: [id], onDelete: Cascade)
+  
+  // Related entities
+  projectId         String?
+  taskId            String?
+  
+  lastMessageAt     DateTime? @map("last_message_at")
+  isArchived        Boolean   @default(false) @map("is_archived")
+  
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
+  messages          Message[]
+
+  @@map("conversations")
+  @@index([clientId])
+  @@index([accountManagerId])
+  @@index([lastMessageAt(sort: Desc)])
+}
+
+model Message {
+  id             String      @id @default(uuid())
+  conversationId String      @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String      @map("sender_id")
+  sender         User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  
+  type           MessageType @default(TEXT)
+  content        String
+  
+  // File attachments
+  fileUrl        String?     @map("file_url")
+  fileName       String?     @map("file_name")
+  fileSize       Int?        @map("file_size")
+  fileType       String?     @map("file_type")
+  
+  // Status
+  isRead         Boolean     @default(false) @map("is_read")
+  readAt         DateTime?   @map("read_at")
+  
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  @@map("messages")
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([createdAt(sort: Desc)])
+}
+
+model SupportTicket {
+  id               String         @id @default(uuid())
+  ticketNumber     String         @unique @map("ticket_number")
+  userId           String         @map("user_id")
+  user             User           @relation("TicketUser", fields: [userId], references: [id], onDelete: Cascade)
+  assignedToId     String?        @map("assigned_to")
+  assignedTo       User?          @relation("TicketAssignee", fields: [assignedToId], references: [id])
+  
+  subject          String
+  description      String
+  
+  priority         TicketPriority @default(NORMAL)
+  status           TicketStatus   @default(OPEN)
+  
+  // Related entities
+  projectId        String?        @map("project_id")
+  project          Project?       @relation(fields: [projectId], references: [id])
+  taskId           String?        @map("task_id")
+  task             Task?          @relation(fields: [taskId], references: [id])
+  
+  // Resolution
+  resolvedAt       DateTime?      @map("resolved_at")
+  resolvedById     String?        @map("resolved_by")
+  resolvedBy       User?          @relation("TicketResolver", fields: [resolvedById], references: [id])
+  resolutionNotes  String?        @map("resolution_notes")
+  
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  @@map("support_tickets")
+  @@index([userId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([ticketNumber])
+}
+
+model ActivityLog {
+  id           String       @id @default(uuid())
+  userId       String?      @map("user_id")
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  activityType ActivityType @map("activity_type")
+  
+  description  String
+  metadata     Json?
+  
+  ipAddress    String?      @map("ip_address")
+  userAgent    String?      @map("user_agent")
+  
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  @@map("activity_logs")
+  @@index([userId])
+  @@index([activityType])
+  @@index([createdAt(sort: Desc)])
+}
+
+model TalentProfile {
+  id                      String                   @id @default(uuid())
+  
+  // Basic Info
+  firstName               String                   @map("first_name")
+  lastName                String                   @map("last_name")
+  email                   String                   @unique
+  
+  // Professional Info
+  primaryExpertise        String                   @map("primary_expertise") @db.Text
+  additionalSkills        String?                  @map("additional_skills") @db.Text
+  
+  // Profile URLs (stored as JSON array)
+  profileUrls             Json?                    @map("profile_urls")
+  
+  // Work Preferences
+  currentEmploymentStatus EmploymentStatus         @map("current_employment_status")
+  preferredWorkType       WorkType                 @map("preferred_work_type")
+  hourlyRate              Decimal                  @map("hourly_rate") @db.Decimal(10, 2)
+  
+  // Meeting Schedule
+  preferredMeetingTime    String?                  @map("preferred_meeting_time")
+  meetingNotes            String?                  @map("meeting_notes") @db.Text
+  calendarBookingId       String?                  @map("calendar_booking_id") // Cal.com or Google Calendar booking ID
+  meetingLink             String?                  @map("meeting_link")
+  scheduledStartTime      DateTime?                @map("scheduled_start_time")
+  scheduledEndTime        DateTime?                @map("scheduled_end_time")
+  attendeeName            String?                  @map("attendee_name") // Name from Cal.com booking
+  attendeeTimezone        String?                  @map("attendee_timezone") // Timezone from Cal.com
+  
+  // Application Status
+  status                  TalentApplicationStatus  @default(PENDING_REVIEW)
+  reviewedAt              DateTime?                @map("reviewed_at")
+  reviewedBy              String?                  @map("reviewed_by")
+  rejectionReason         String?                  @map("rejection_reason") @db.Text
+  
+  // If approved, link to created User account
+  userId                  String?                  @unique @map("user_id")
+  user                    User?                    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  // Timestamps
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+  
+  @@map("talent_profiles")
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+}
