@@ -63,8 +63,31 @@ app.use(helmet({
 }));
 
 // CORS configuration - MUST come before SuperTokens middleware
+// Allow multiple origins for local dev and production
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://www.knacksters.co',
+  'https://knacksters.co',
+  'http://localhost:3000', // Local development
+  'http://localhost:3001', // Alternative local port
+].filter(Boolean); // Remove any undefined values
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, Postman, etc.)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      // Log for debugging (remove in production if needed)
+      logger.warn(`CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   allowedHeaders: ['content-type', ...supertokens.getAllCORSHeaders()],
   exposedHeaders: ['content-type', ...supertokens.getAllCORSHeaders()],
