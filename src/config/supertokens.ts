@@ -79,8 +79,8 @@ export function initSupertokens() {
         },
       }),
       Session.init({
-        cookieSameSite: 'lax',
-        cookieSecure: false,
+        cookieSameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        cookieSecure: process.env.NODE_ENV === 'production',
         sessionExpiredStatusCode: 401,
         override: {
           functions: (originalImplementation) => {
