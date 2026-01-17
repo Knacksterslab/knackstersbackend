@@ -96,6 +96,76 @@ export class AdminController {
     }
   }
 
+  async createUser(req: AuthRequest, res: Response) {
+    try {
+      const adminId = this.getUserId(req, res);
+      if (!adminId) return;
+
+      const { email, firstName, lastName, role } = req.body;
+
+      // Validate required fields
+      if (!email || !firstName || !lastName || !role) {
+        return ApiResponse.error(res, 'Missing required fields', 400);
+      }
+
+      // Validate role
+      if (!['ADMIN', 'MANAGER', 'TALENT'].includes(role)) {
+        return ApiResponse.error(res, 'Invalid role. Only ADMIN, MANAGER, and TALENT users can be created.', 400);
+      }
+
+      const user = await AdminUserService.createUser({
+        email,
+        firstName,
+        lastName,
+        role,
+      });
+
+      return ApiResponse.success(res, {
+        user,
+        message: 'User created successfully. They can now sign up with this email.',
+      }, 201);
+    } catch (error: any) {
+      logger.error('createUser failed', error);
+      return ApiResponse.error(res, error.message || 'Failed to create user');
+    }
+  }
+
+  async updateUserRole(req: AuthRequest, res: Response) {
+    try {
+      const adminId = this.getUserId(req, res);
+      if (!adminId) return;
+
+      const { role } = req.body;
+      if (!role) {
+        return ApiResponse.error(res, 'Role is required', 400);
+      }
+
+      const user = await AdminUserService.updateUserRole(req.params.userId, role as UserRole);
+      return ApiResponse.success(res, user);
+    } catch (error: any) {
+      logger.error('updateUserRole failed', error);
+      return ApiResponse.error(res, 'Failed to update user role');
+    }
+  }
+
+  async toggleUserStatus(req: AuthRequest, res: Response) {
+    try {
+      const adminId = this.getUserId(req, res);
+      if (!adminId) return;
+
+      const { active } = req.body;
+      if (typeof active !== 'boolean') {
+        return ApiResponse.error(res, 'Active status is required', 400);
+      }
+
+      const user = await AdminUserService.toggleUserStatus(req.params.userId, active);
+      return ApiResponse.success(res, user);
+    } catch (error: any) {
+      logger.error('toggleUserStatus failed', error);
+      return ApiResponse.error(res, 'Failed to update user status');
+    }
+  }
+
   async getActivityLogs(req: AuthRequest, res: Response) {
     try {
       const adminId = this.getUserId(req, res);

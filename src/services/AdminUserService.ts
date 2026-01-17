@@ -223,6 +223,64 @@ export class AdminUserService {
   }
 
   /**
+   * Create new user (ADMIN, MANAGER, or TALENT only)
+   */
+  async createUser(data: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: 'ADMIN' | 'MANAGER' | 'TALENT';
+  }) {
+    // Validate role - only allow ADMIN, MANAGER, TALENT creation
+    if (!['ADMIN', 'MANAGER', 'TALENT'].includes(data.role)) {
+      throw new Error('Invalid role. Only ADMIN, MANAGER, and TALENT users can be created by admins.');
+    }
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: data.email.toLowerCase() },
+    });
+
+    if (existingUser) {
+      throw new Error('User with this email already exists');
+    }
+
+    // Create user with specified role
+    return prisma.user.create({
+      data: {
+        email: data.email.toLowerCase(),
+        firstName: data.firstName,
+        lastName: data.lastName,
+        fullName: `${data.firstName} ${data.lastName}`,
+        role: data.role as UserRole,
+        status: 'ACTIVE',
+      },
+    });
+  }
+
+  /**
+   * Update user role
+   */
+  async updateUserRole(userId: string, role: UserRole) {
+    return prisma.user.update({
+      where: { id: userId },
+      data: { role },
+    });
+  }
+
+  /**
+   * Toggle user status (activate/deactivate)
+   */
+  async toggleUserStatus(userId: string, active: boolean) {
+    return prisma.user.update({
+      where: { id: userId },
+      data: {
+        status: active ? 'ACTIVE' : 'INACTIVE',
+      },
+    });
+  }
+
+  /**
    * Assign account manager to client
    */
   async assignAccountManager(clientId: string, managerId: string) {
