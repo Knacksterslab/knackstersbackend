@@ -1,13 +1,13 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
-import path from 'path';
-import { promises as fs } from 'fs';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import { UserRole } from '../../config/supertokens';
+import { uploadToStorage } from '../../config/supabase-storage';
+import { logger } from '../../utils/logger';
 
 const router = Router();
 
-// Configure multer for file uploads
+// Configure multer for file uploads (in-memory storage)
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
@@ -37,34 +37,40 @@ router.post('/', requireAuth, requireRole(UserRole.ADMIN), upload.single('file')
     const originalName = req.file.originalname.toLowerCase().replace(/[^a-z0-9.-]/g, '-');
     const fileName = `${Date.now()}-${originalName}`;
     
-    // Determine upload directory based on destination
-    let uploadDir: string;
-    let publicUrl: string;
+    // Determine bucket and path based on destination
+    let bucketName: string;
+    let filePath: string;
     
     if (destination === 'talent') {
-      uploadDir = path.join(process.cwd(), '..', 'frontend', 'public', 'images');
-      publicUrl = `/images/${fileName}`;
+      bucketName = 'talent-images';
+      filePath = fileName;
     } else {
       // Default to partners
-      uploadDir = path.join(process.cwd(), '..', 'frontend', 'public', 'images', 'partners');
-      publicUrl = `/images/partners/${fileName}`;
+      bucketName = 'partner-logos';
+      filePath = fileName;
     }
     
-    const filePath = path.join(uploadDir, fileName);
+    // Upload to Supabase Storage
+    const publicUrl = await uploadToStorage(
+      bucketName,
+      filePath,
+      req.file.buffer,
+      req.file.mimetype
+    );
 
-    // Ensure directory exists
-    await fs.mkdir(uploadDir, { recursive: true });
-
-    // Write file
-    await fs.writeFile(filePath, req.file.buffer);
+    logger.info(`File uploaded successfully: ${fileName} to ${bucketName}`);
 
     return res.json({
       success: true,
       url: publicUrl,
       fileName,
     });
-  } catch (error) {
-    return res.status(500).json({ success: false, error: 'Failed to upload file' });
+  } catch (error: any) {
+    logger.error('Upload failed', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to upload file' 
+    });
   }
 });
 
