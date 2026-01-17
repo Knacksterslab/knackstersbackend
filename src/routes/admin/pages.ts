@@ -133,6 +133,43 @@ router.put('/terms', async (req: Request, res: Response): Promise<any> => {
 });
 
 /**
+ * Landing Page Hero / Talent Cards
+ */
+router.get('/landing-hero', async (_req: Request, res: Response): Promise<any> => {
+  try {
+    const content = await ContentService.getContent('landing-hero');
+    return ApiResponse.success(res, { content });
+  } catch (error: any) {
+    logger.error('Get landing hero content failed', error);
+    return ApiResponse.error(res, error.message || 'Failed to load landing hero content');
+  }
+});
+
+router.put('/landing-hero', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { talentCards } = req.body;
+    
+    // Validate talent cards array
+    if (!Array.isArray(talentCards)) {
+      return ApiResponse.error(res, 'talentCards must be an array', 400);
+    }
+    
+    // Validate each card
+    for (const card of talentCards) {
+      if (!card.id || !card.image || !card.name || !card.role) {
+        return ApiResponse.error(res, 'Each talent card must have id, image, name, and role', 400);
+      }
+    }
+    
+    await ContentService.updateContent('landing-hero', { talentCards });
+    return ApiResponse.success(res, { message: 'Landing hero content updated successfully' });
+  } catch (error: any) {
+    logger.error('Update landing hero content failed', error);
+    return ApiResponse.error(res, error.message || 'Failed to update landing hero content');
+  }
+});
+
+/**
  * List all available content pages
  */
 router.get('/', async (_req: Request, res: Response): Promise<any> => {
