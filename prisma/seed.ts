@@ -12,6 +12,22 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Starting database seed...\n');
 
+  // Create Admin User
+  console.log('👑 Creating admin user...');
+  const admin = await prisma.user.upsert({
+    where: { email: 'admin@knacksters.com' },
+    update: {},
+    create: {
+      email: 'admin@knacksters.com',
+      role: UserRole.ADMIN,
+      firstName: 'Admin',
+      lastName: 'User',
+      fullName: 'Admin User',
+      status: 'ACTIVE',
+    },
+  });
+  console.log(`   ✅ Created admin: ${admin.fullName} (${admin.email})\n`);
+
   // Create Account Managers
   console.log('👤 Creating account managers...');
   const manager1 = await prisma.user.upsert({
@@ -293,6 +309,7 @@ async function main() {
 
   console.log('✨ Seed completed successfully!\n');
   console.log('📊 Summary:');
+  console.log(`   - Admin Users: 1`);
   console.log(`   - Account Managers: 1`);
   console.log(`   - Clients: 2`);
   console.log(`   - Talent: 2`);
@@ -302,7 +319,8 @@ async function main() {
   console.log(`   - Notifications: 2\n`);
   console.log('🚀 You can now:');
   console.log(`   - View data: npm run prisma:studio`);
-  console.log(`   - Test services: npm run dev\n`);
+  console.log(`   - Test services: npm run dev`);
+  console.log(`   - Admin login: Sign up with admin@knacksters.com via SuperTokens\n`);
 }
 
 main()

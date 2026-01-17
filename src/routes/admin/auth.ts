@@ -1,52 +1,72 @@
 /**
  * Admin Authentication Routes
  * /api/admin/auth/*
+ * 
+ * Admin authentication is handled through SuperTokens with ADMIN role.
+ * Admins must:
+ * 1. Have a user account with role: ADMIN in the database
+ * 2. Sign in through SuperTokens (same as regular users)
+ * 3. SuperTokens session will include their ADMIN role
  */
 
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { ApiResponse } from '../../utils/response';
-import { logger } from '../../utils/logger';
+import { requireAuth, requireRole, AuthRequest } from '../../middleware/auth';
+import { UserRole } from '../../config/supertokens';
+import { prisma } from '../../lib/prisma';
 
 const router = Router();
 
 /**
- * Admin login endpoint
- * POST /api/admin/auth/login
+ * Check admin status
+ * GET /api/admin/auth/status
+ * Returns current admin user info if authenticated
  */
-router.post('/login', (req: Request, res: Response) => {
+router.get('/status', requireAuth, requireRole(UserRole.ADMIN), async (req: AuthRequest, res: Response): Promise<any> => {
   try {
-    const { password } = req.body;
+    const userId = req.userId;
 
-    if (!password) {
-      return ApiResponse.badRequest(res, 'Password is required');
+    if (!userId) {
+      return ApiResponse.unauthorized(res, 'User ID not found in session');
     }
 
-    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    // Get admin user details
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        fullName: true,
+        role: true,
+        status: true,
+        createdAt: true,
+      },
+    });
 
-    if (password === adminPassword) {
-      // In a real app, you'd create a proper session/JWT here
-      // For now, we'll just return success
-      return ApiResponse.success(res, {
-        authenticated: true,
-        message: 'Admin authentication successful',
-      });
-    } else {
-      return ApiResponse.unauthorized(res, 'Invalid admin password');
+    if (!user) {
+      return ApiResponse.notFound(res, 'Admin user not found');
     }
+
+    return ApiResponse.success(res, {
+      user,
+      authenticated: true,
+    });
   } catch (error: any) {
-    logger.error('Admin login failed', error);
-    return ApiResponse.error(res, 'Authentication failed');
+    console.error('Admin status check failed:', error);
+    return ApiResponse.error(res, 'Failed to verify admin status');
   }
 });
 
 /**
- * Admin logout endpoint
- * POST /api/admin/auth/logout
+ * Note: Login is handled by SuperTokens /auth endpoints
+ * Logout is handled by SuperTokens /auth/signout
+ * 
+ * To create an admin user:
+ * 1. Insert user with role='ADMIN' in database
+ * 2. User signs up/logs in through SuperTokens
+ * 3. SuperTokens session will include ADMIN role
  */
-router.post('/logout', (_req: Request, res: Response) => {
-  return ApiResponse.success(res, {
-    message: 'Admin logged out successfully',
-  });
-});
 
 export default router;
