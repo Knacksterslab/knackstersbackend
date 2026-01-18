@@ -21,6 +21,7 @@ import authRoutes from './routes/auth';
 import adminAuthRoutes from './routes/admin/auth';
 import contentRoutes from './routes/admin/content';
 import partnersRoutes from './routes/admin/partners';
+import managersRoutes from './routes/admin/managers';
 import uploadRoutes from './routes/admin/upload';
 import pagesRoutes from './routes/admin/pages';
 
@@ -130,6 +131,7 @@ app.use('/api/admin/content', contentRoutes);
 app.use('/api/admin/partners', partnersRoutes);
 app.use('/api/admin/pages', pagesRoutes);
 app.use('/api/admin/upload', uploadRoutes);
+app.use('/api/admin/managers', managersRoutes);
 
 // Client Routes
 app.use('/api/client/dashboard', dashboardRoutes);

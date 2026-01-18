@@ -177,6 +177,17 @@ enum TalentApplicationStatus {
   ACTIVE
 }
 
+enum SolutionType {
+  AI_MACHINE_LEARNING
+  CYBERSECURITY
+  SOFTWARE_DEVELOPMENT
+  DESIGN_CREATIVE
+  MARKETING_GROWTH
+  HEALTHCARE_LIFE_SCIENCES
+  MULTIPLE
+  OTHER
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -205,6 +216,13 @@ model User {
   // Onboarding & User Preferences
   onboardingTips       Json?     @default("{}") @map("onboarding_tips")
   isOnboardingComplete Boolean   @default(false) @map("is_onboarding_complete")
+  
+  // Solution selection (for clients)
+  selectedSolution     SolutionType? @map("selected_solution")
+  selectedSolutionNotes String?    @map("selected_solution_notes") @db.Text
+  
+  // Manager specializations (for managers)
+  specializations      SolutionType[] @default([]) 
   
   // Account manager relationship (self-referencing)
   accountManagerId  String?    @map("account_manager_id")
