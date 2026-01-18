@@ -40,6 +40,14 @@ export function initSupertokens() {
               id: 'name',
               optional: false,
             },
+            {
+              id: 'selectedSolution',
+              optional: true,
+            },
+            {
+              id: 'solutionNotes',
+              optional: true,
+            },
           ],
         },
         override: {
