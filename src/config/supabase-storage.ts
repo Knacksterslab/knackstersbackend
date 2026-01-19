@@ -10,17 +10,21 @@ import { logger } from '../utils/logger';
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-if (!supabaseUrl || !supabaseServiceKey) {
+// Create Supabase client with service role key (bypasses RLS for admin operations)
+// Only create client if credentials are provided
+export const supabaseStorage = 
+  supabaseUrl && supabaseServiceKey
+    ? createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      })
+    : null;
+
+if (!supabaseStorage) {
   logger.warn('Supabase Storage not configured. File uploads will fail.');
 }
-
-// Create Supabase client with service role key (bypasses RLS for admin operations)
-export const supabaseStorage = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-});
 
 /**
  * Upload file to Supabase Storage
@@ -36,6 +40,10 @@ export async function uploadToStorage(
   fileBuffer: Buffer,
   contentType: string
 ): Promise<string> {
+  if (!supabaseStorage) {
+    throw new Error('Supabase Storage is not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
+  }
+
   try {
     const { error } = await supabaseStorage.storage
       .from(bucketName)
@@ -70,6 +78,10 @@ export async function deleteFromStorage(
   bucketName: string,
   filePath: string
 ): Promise<void> {
+  if (!supabaseStorage) {
+    throw new Error('Supabase Storage is not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
+  }
+
   try {
     const { error } = await supabaseStorage.storage
       .from(bucketName)
@@ -94,6 +106,10 @@ export async function listStorageFiles(
   bucketName: string,
   folder?: string
 ): Promise<any[]> {
+  if (!supabaseStorage) {
+    throw new Error('Supabase Storage is not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
+  }
+
   try {
     const { data, error } = await supabaseStorage.storage
       .from(bucketName)

@@ -4,7 +4,7 @@
  */
 
 import { prisma } from '../lib/prisma';
-import { UserRole, UserStatus } from '@prisma/client';
+import { UserRole, UserStatus, SolutionType } from '@prisma/client';
 
 export class AdminUserService {
   /**
@@ -230,6 +230,7 @@ export class AdminUserService {
     firstName: string;
     lastName: string;
     role: 'ADMIN' | 'MANAGER' | 'TALENT';
+    specializations?: string[];
   }) {
     // Validate role - only allow ADMIN, MANAGER, TALENT creation
     if (!['ADMIN', 'MANAGER', 'TALENT'].includes(data.role)) {
@@ -254,6 +255,7 @@ export class AdminUserService {
         fullName: `${data.firstName} ${data.lastName}`,
         role: data.role as UserRole,
         status: 'ACTIVE',
+        specializations: (data.specializations || []) as SolutionType[],
       },
     });
   }

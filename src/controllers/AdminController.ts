@@ -101,7 +101,7 @@ export class AdminController {
       const adminId = this.getUserId(req, res);
       if (!adminId) return;
 
-      const { email, firstName, lastName, role } = req.body;
+      const { email, firstName, lastName, role, specializations } = req.body;
 
       // Validate required fields
       if (!email || !firstName || !lastName || !role) {
@@ -118,6 +118,7 @@ export class AdminController {
         firstName,
         lastName,
         role,
+        specializations,
       });
 
       return ApiResponse.success(res, {
