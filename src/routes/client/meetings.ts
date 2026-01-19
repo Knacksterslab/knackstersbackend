@@ -6,12 +6,13 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import MeetingController from '../../controllers/MeetingController';
+import { UserRole } from '../../config/supertokens';
 
 const router = Router();
 
 // All routes require authentication AND client role
 router.use(requireAuth);
-router.use(requireRole('CLIENT'));
+router.use(requireRole(UserRole.CLIENT));
 
 router.get('/', (req, res) => MeetingController.getMeetings(req as any, res));
 router.get('/:id', (req, res) => MeetingController.getMeeting(req as any, res));

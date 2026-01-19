@@ -6,12 +6,13 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import NotificationController from '../../controllers/NotificationController';
+import { UserRole } from '../../config/supertokens';
 
 const router = Router();
 
 // All routes require authentication AND client role
 router.use(requireAuth);
-router.use(requireRole('CLIENT'));
+router.use(requireRole(UserRole.CLIENT));
 
 router.get('/', (req, res) => NotificationController.getNotifications(req as any, res));
 router.get('/unread', (req, res) => NotificationController.getUnreadNotifications(req as any, res));

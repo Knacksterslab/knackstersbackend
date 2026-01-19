@@ -6,12 +6,13 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import TaskController from '../../controllers/TaskController';
+import { UserRole } from '../../config/supertokens';
 
 const router = Router();
 
 // All routes require authentication AND client role
 router.use(requireAuth);
-router.use(requireRole('CLIENT'));
+router.use(requireRole(UserRole.CLIENT));
 
 router.get('/', (req, res) => TaskController.getTasks(req as any, res));
 router.post('/', (req, res) => TaskController.createTask(req as any, res));

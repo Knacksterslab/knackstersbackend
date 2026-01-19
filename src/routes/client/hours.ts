@@ -6,11 +6,12 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import DashboardController from '../../controllers/DashboardController';
+import { UserRole } from '../../config/supertokens';
 
 const router = Router();
 
 router.use(requireAuth);
-router.use(requireRole('CLIENT'));
+router.use(requireRole(UserRole.CLIENT));
 
 router.get('/balance', (req, res) => DashboardController.getHoursBalance(req as any, res));
 
