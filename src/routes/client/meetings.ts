@@ -4,13 +4,14 @@
  */
 
 import { Router } from 'express';
-import { requireAuth } from '../../middleware/auth';
+import { requireAuth, requireRole } from '../../middleware/auth';
 import MeetingController from '../../controllers/MeetingController';
 
 const router = Router();
 
-// All routes require authentication
+// All routes require authentication AND client role
 router.use(requireAuth);
+router.use(requireRole('CLIENT'));
 
 router.get('/', (req, res) => MeetingController.getMeetings(req as any, res));
 router.get('/:id', (req, res) => MeetingController.getMeeting(req as any, res));

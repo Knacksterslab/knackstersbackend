@@ -4,13 +4,14 @@
  */
 
 import { Router } from 'express';
-import { requireAuth } from '../../middleware/auth';
+import { requireAuth, requireRole } from '../../middleware/auth';
 import { ManagerController } from '../../controllers/ManagerController';
 
 const router = Router();
 
-// All routes require authentication
+// All routes require authentication AND manager role
 router.use(requireAuth);
+router.use(requireRole('MANAGER')); // Strict tenant isolation
 
 // Dashboard routes (using 'as any' to work around TypeScript static method type inference issues)
 router.get('/dashboard', ManagerController.getDashboard as any);

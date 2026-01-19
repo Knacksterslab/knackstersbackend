@@ -5,6 +5,8 @@
 
 import { prisma } from '../lib/prisma';
 import { UserRole, UserStatus, SolutionType } from '@prisma/client';
+import { signUp } from 'supertokens-node/recipe/emailpassword';
+import { logger } from '../utils/logger';
 
 export class AdminUserService {
   /**
@@ -231,6 +233,7 @@ export class AdminUserService {
     lastName: string;
     role: 'ADMIN' | 'MANAGER' | 'TALENT';
     specializations?: string[];
+    password: string;
   }) {
     // Validate role - only allow ADMIN, MANAGER, TALENT creation
     if (!['ADMIN', 'MANAGER', 'TALENT'].includes(data.role)) {
@@ -246,18 +249,49 @@ export class AdminUserService {
       throw new Error('User with this email already exists');
     }
 
-    // Create user with specified role
-    return prisma.user.create({
-      data: {
-        email: data.email.toLowerCase(),
-        firstName: data.firstName,
-        lastName: data.lastName,
-        fullName: `${data.firstName} ${data.lastName}`,
-        role: data.role as UserRole,
-        status: 'ACTIVE',
-        specializations: (data.specializations || []) as SolutionType[],
-      },
-    });
+    // STEP 1: Create SuperTokens account FIRST to get the SuperTokens user ID
+    let supertokensUserId: string;
+    
+    try {
+      const supertokensResponse = await signUp('public', data.email.toLowerCase(), data.password);
+      
+      if (supertokensResponse.status !== 'OK') {
+        if (supertokensResponse.status === 'EMAIL_ALREADY_EXISTS_ERROR') {
+          throw new Error('Email already exists in authentication system');
+        }
+        throw new Error('Failed to create authentication account');
+      }
+      
+      supertokensUserId = supertokensResponse.user.id;
+      logger.info(`SuperTokens account created with ID: ${supertokensUserId} for ${data.email}`);
+    } catch (error: any) {
+      logger.error('Failed to create SuperTokens account', error);
+      throw new Error(`Authentication account creation failed: ${error.message}`);
+    }
+
+    // STEP 2: Create Prisma user with the SuperTokens ID
+    try {
+      const user = await prisma.user.create({
+        data: {
+          id: supertokensUserId, // Use SuperTokens ID so they match!
+          email: data.email.toLowerCase(),
+          firstName: data.firstName,
+          lastName: data.lastName,
+          fullName: `${data.firstName} ${data.lastName}`,
+          role: data.role as UserRole,
+          status: 'ACTIVE',
+          specializations: (data.specializations || []) as SolutionType[],
+          avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.email}`,
+        },
+      });
+
+      logger.info(`Prisma user created with matching ID: ${user.id} for ${data.email}`);
+      return user;
+    } catch (error: any) {
+      logger.error('Failed to create Prisma user', error);
+      // TODO: Ideally, we should delete the SuperTokens user here if Prisma creation fails
+      throw new Error(`Database user creation failed: ${error.message}`);
+    }
   }
 
   /**

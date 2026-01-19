@@ -1,0 +1,45 @@
+{
+  "talentCards": [
+    {
+      "id": "talent-1",
+      "image": "https://mfvlupdibigooihoiuew.supabase.co/storage/v1/object/public/talent-images/1768848297532-jerry-zhang.png",
+      "name": "Jerry Zhang",
+      "role": "Full Stack Developer"
+    },
+    {
+      "id": "talent-2",
+      "image": "https://mfvlupdibigooihoiuew.supabase.co/storage/v1/object/public/talent-images/1768848317474-michelle-ekundayo.jpg",
+      "name": "Michelle Ekundayo",
+      "role": "Clinical Data Manager"
+    },
+    {
+      "id": "talent-3",
+      "image": "https://mfvlupdibigooihoiuew.supabase.co/storage/v1/object/public/talent-images/1768848344199-david-a.png",
+      "name": "David A",
+      "role": "Cyber Security Researcher"
+    },
+    {
+      "id": "talent-4",
+      "image": "https://mfvlupdibigooihoiuew.supabase.co/storage/v1/object/public/talent-images/1768848368002-maria-holt.png",
+      "name": "Maria Holt",
+      "role": "Marketing Specialist"
+    },
+    {
+      "id": "talent-5",
+      "image": "https://mfvlupdibigooihoiuew.supabase.co/storage/v1/object/public/talent-images/1768848470350-deepak-sharma.png",
+      "name": "Deepak Sharma",
+      "role": "A.I.Solutions Specialist"
+    },
+    {
+      "id": "talent-6",
+      "image": "https://mfvlupdibigooihoiuew.supabase.co/storage/v1/object/public/talent-images/1768848462083-rachel-aslund.png",
+      "name": "Rachel Aslund",
+      "role": "UXUI Designer"
+    }
+  ],
+  "_metadata": {
+    "page": "landing-hero",
+    "lastUpdated": "2026-01-19T18:48:26.731Z",
+    "version": "1.0"
+  }
+}

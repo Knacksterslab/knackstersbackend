@@ -4,13 +4,14 @@
  */
 
 import { Router } from 'express';
-import { requireAuth } from '../../middleware/auth';
+import { requireAuth, requireRole } from '../../middleware/auth';
 import BillingController from '../../controllers/BillingController';
 
 const router = Router();
 
-// All routes require authentication
+// All routes require authentication AND client role
 router.use(requireAuth);
+router.use(requireRole('CLIENT'));
 
 router.get('/summary', (req, res) => BillingController.getBillingSummary(req as any, res));
 router.get('/invoices', (req, res) => BillingController.getInvoices(req as any, res));

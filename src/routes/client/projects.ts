@@ -4,14 +4,15 @@
  */
 
 import { Router } from 'express';
-import { requireAuth } from '../../middleware/auth';
+import { requireAuth, requireRole } from '../../middleware/auth';
 import ProjectController from '../../controllers/ProjectController';
 import TaskController from '../../controllers/TaskController';
 
 const router = Router();
 
-// All routes require authentication
+// All routes require authentication AND client role
 router.use(requireAuth);
+router.use(requireRole('CLIENT'));
 
 router.get('/', (req, res) => ProjectController.getProjects(req as any, res));
 router.post('/', (req, res) => ProjectController.createProject(req as any, res));

@@ -4,12 +4,13 @@
  */
 
 import { Router } from 'express';
-import { requireAuth } from '../../middleware/auth';
+import { requireAuth, requireRole } from '../../middleware/auth';
 import TimeLogController from '../../controllers/TimeLogController';
 
 const router = Router();
 
 router.use(requireAuth);
+router.use(requireRole('CLIENT'));
 
 // Get all time logs for the user
 router.get('/', (req, res) => TimeLogController.getTimeLogs(req as any, res));

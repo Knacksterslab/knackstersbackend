@@ -151,7 +151,7 @@ app.use('/api/user/preferences', userPreferencesRoutes);
 app.use('/api/talent', talentDashboardRoutes);
 
 // Manager Routes
-app.use('/api/manager/dashboard', managerDashboardRoutes);
+app.use('/api/manager', managerDashboardRoutes);
 app.use('/api/manager/onboarding', managerOnboardingRoutes);
 
 // Admin Routes (Dashboard & Management)
