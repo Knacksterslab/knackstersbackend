@@ -79,9 +79,12 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/b64e0ab6-7d71-4fbd-bdcc-a8b7f534a7a1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.ts:83',message:'CORS origin check',data:{origin:origin,allowedOrigins:allowedOrigins,hasOrigin:!!origin},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1,H2'})}).catch(()=>{});
-    // #endregion
+    console.log('[DEBUG] CORS origin check:', {
+      origin: origin,
+      allowedOrigins: allowedOrigins,
+      hasOrigin: !!origin,
+      isAllowed: origin ? allowedOrigins.includes(origin) : true,
+    });
     
     // Allow requests with no origin (like mobile apps, curl, Postman, etc.)
     if (!origin) {
