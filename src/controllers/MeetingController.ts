@@ -13,7 +13,7 @@ import { Validators } from '../utils/validation';
 
 export class MeetingController {
   private static getUserId(req: AuthRequest, res: Response): string | null {
-    const userId = req.session?.userId;
+    const userId = req.userId;
     if (!userId) {
       ApiResponse.unauthorized(res);
       return null;
@@ -23,7 +23,7 @@ export class MeetingController {
 
   static async getMeetings(req: AuthRequest, res: Response) {
     try {
-      const userId = req.session?.userId;
+      const userId = req.userId;
       if (!userId) return ApiResponse.unauthorized(res);
 
       const status = req.query.status as MeetingStatus | undefined;
@@ -37,7 +37,7 @@ export class MeetingController {
 
   static async getMeeting(req: AuthRequest, res: Response) {
     try {
-      const userId = req.session?.userId;
+      const userId = req.userId;
       if (!userId) return ApiResponse.unauthorized(res);
 
       const meeting = await MeetingService.getMeetingById(req.params.id, userId);

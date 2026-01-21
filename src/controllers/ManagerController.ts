@@ -15,7 +15,7 @@ import { prisma } from '../lib/prisma';
 export class ManagerController {
   static async getDashboard(req: AuthRequest, res: Response) {
     try {
-      const managerId = req.session?.userId;
+      const managerId = req.userId;
       if (!managerId) return ApiResponse.unauthorized(res);
 
       const dashboard = await ManagerService.getDashboardOverview(managerId);
@@ -28,7 +28,7 @@ export class ManagerController {
 
   static async getClients(req: AuthRequest, res: Response) {
     try {
-      const managerId = req.session?.userId;
+      const managerId = req.userId;
       if (!managerId) return ApiResponse.unauthorized(res);
 
       const clients = await prisma.user.findMany({
@@ -43,7 +43,7 @@ export class ManagerController {
 
   static async getProjects(req: AuthRequest, res: Response) {
     try {
-      const managerId = req.session?.userId;
+      const managerId = req.userId;
       if (!managerId) return ApiResponse.unauthorized(res);
 
       const projects = await ManagerService.getManagerProjects(managerId);
@@ -56,7 +56,7 @@ export class ManagerController {
 
   static async getTasks(req: AuthRequest, res: Response) {
     try {
-      const managerId = req.session?.userId;
+      const managerId = req.userId;
       if (!managerId) return ApiResponse.unauthorized(res);
 
       const tasks = await ManagerService.getManagerTasks(managerId);
@@ -69,7 +69,7 @@ export class ManagerController {
 
   static async getStats(req: AuthRequest, res: Response) {
     try {
-      const managerId = req.session?.userId;
+      const managerId = req.userId;
       if (!managerId) return ApiResponse.unauthorized(res);
 
       const stats = await ManagerService.getManagerStats(managerId);
@@ -82,7 +82,7 @@ export class ManagerController {
 
   static async getAvailableTalent(req: AuthRequest, res: Response) {
     try {
-      const managerId = req.session?.userId;
+      const managerId = req.userId;
       if (!managerId) return ApiResponse.unauthorized(res);
 
       const talent = await ManagerService.getAvailableTalent();
@@ -95,7 +95,7 @@ export class ManagerController {
 
   static async getPendingOnboardingClients(req: AuthRequest, res: Response) {
     try {
-      const managerId = req.session?.userId;
+      const managerId = req.userId;
       if (!managerId) return ApiResponse.unauthorized(res);
 
       const pendingClients = await prisma.user.findMany({
@@ -126,7 +126,7 @@ export class ManagerController {
 
   static async activateClientSubscription(req: AuthRequest, res: Response) {
     try {
-      const managerId = req.session?.userId;
+      const managerId = req.userId;
       if (!managerId) return ApiResponse.unauthorized(res);
 
       const { userId, plan, customPriceAmount } = req.body;
@@ -173,7 +173,7 @@ export class ManagerController {
 
   static async getClientDetails(req: AuthRequest, res: Response) {
     try {
-      const managerId = req.session?.userId;
+      const managerId = req.userId;
       if (!managerId) return ApiResponse.unauthorized(res);
 
       const client = await prisma.user.findUnique({

@@ -14,7 +14,7 @@ import { logger } from '../utils/logger';
 
 export class DashboardController {
   private static getUserId(req: AuthRequest, res: Response): string | null {
-    const userId = req.session?.userId;
+    const userId = req.userId;
     if (!userId) {
       ApiResponse.unauthorized(res);
       return null;
@@ -32,7 +32,7 @@ export class DashboardController {
     } catch (error: any) {
       logger.error('getOverview failed', error);
       
-      const userId = req.session?.userId;
+      const userId = req.userId;
       if (error.message === 'User not found' && userId) {
         return ApiResponse.success(res, {
           user: { id: userId, email: '', role: 'CLIENT', fullName: 'New User', companyName: null, phone: null, avatarUrl: null },

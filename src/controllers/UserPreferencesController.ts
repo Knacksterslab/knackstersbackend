@@ -15,7 +15,7 @@ export class UserPreferencesController {
    */
   static async getDismissedTips(req: AuthRequest, res: Response) {
     try {
-      const userId = req.session?.userId;
+      const userId = req.userId;
       if (!userId) {
         return ApiResponse.unauthorized(res);
       }
@@ -49,7 +49,7 @@ export class UserPreferencesController {
    */
   static async dismissTip(req: AuthRequest, res: Response) {
     try {
-      const userId = req.session?.userId;
+      const userId = req.userId;
       if (!userId) {
         return ApiResponse.unauthorized(res);
       }
@@ -101,7 +101,7 @@ export class UserPreferencesController {
    */
   static async completeOnboarding(req: AuthRequest, res: Response) {
     try {
-      const userId = req.session?.userId;
+      const userId = req.userId;
       if (!userId) {
         return ApiResponse.unauthorized(res);
       }
@@ -129,7 +129,7 @@ export class UserPreferencesController {
    */
   static async resetTips(req: AuthRequest, res: Response) {
     try {
-      const userId = req.session?.userId;
+      const userId = req.userId;
       if (!userId) {
         return ApiResponse.unauthorized(res);
       }

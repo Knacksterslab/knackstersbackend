@@ -9,11 +9,25 @@ export interface AuthRequest extends SessionRequest {
   role?: UserRole;
 }
 
-// Middleware to verify session exists
-export const requireAuth = verifySession({
-  sessionRequired: true,
-  overrideGlobalClaimValidators: () => [],
-});
+// Middleware to verify session exists and set userId
+export const requireAuth = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  // First verify the session with SuperTokens
+  await verifySession({
+    sessionRequired: true,
+    overrideGlobalClaimValidators: () => [],
+  })(req, res, async (err?: any) => {
+    if (err) return next(err);
+    
+    // After session is verified, set userId and role on the request
+    if (req.session) {
+      req.userId = req.session.getUserId();
+      const payload = req.session.getAccessTokenPayload();
+      req.role = payload.role as UserRole;
+    }
+    
+    next();
+  });
+};
 
 // Middleware to check specific roles
 export function requireRole(...allowedRoles: UserRole[]) {

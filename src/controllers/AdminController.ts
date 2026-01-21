@@ -13,7 +13,7 @@ import { logger } from '../utils/logger';
 
 export class AdminController {
   private getUserId(req: AuthRequest, res: Response): string | null {
-    const userId = req.session?.userId;
+    const userId = req.userId;
     if (!userId) {
       ApiResponse.unauthorized(res);
       return null;
