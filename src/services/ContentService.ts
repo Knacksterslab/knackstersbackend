@@ -36,24 +36,11 @@ export class ContentService {
       await this.ensureContentDir();
       const filePath = this.getContentPath(page);
       
-      // #region agent log
-      const fs2=require('fs');fs2.appendFileSync('c:\\Users\\futur\\Projects\\Knacksters\\knackstersbackend\\.cursor\\debug.log',JSON.stringify({location:'ContentService.ts:37',message:'Getting content',data:{page,filePath,contentDir:CONTENT_DIR},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C,E'})+'\n');
-      // #endregion
-      
       try {
         const data = await fs.readFile(filePath, 'utf-8');
         const parsed = JSON.parse(data);
-        
-        // #region agent log
-        const fs3=require('fs');fs3.appendFileSync('c:\\Users\\futur\\Projects\\Knacksters\\knackstersbackend\\.cursor\\debug.log',JSON.stringify({location:'ContentService.ts:41',message:'Content file read successfully',data:{page,has_talentCards:!!parsed?.talentCards,cards_count:parsed?.talentCards?.length,first_card_image:parsed?.talentCards?.[0]?.image},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})+'\n');
-        // #endregion
-        
         return parsed;
       } catch (error: any) {
-        // #region agent log
-        const fs4=require('fs');fs4.appendFileSync('c:\\Users\\futur\\Projects\\Knacksters\\knackstersbackend\\.cursor\\debug.log',JSON.stringify({location:'ContentService.ts:43',message:'File read error',data:{page,error_code:error.code,error_message:error.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})+ '\n');
-        // #endregion
-        
         if (error.code === 'ENOENT') {
           // File doesn't exist, return null
           return null;

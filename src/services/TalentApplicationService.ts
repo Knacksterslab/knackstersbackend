@@ -7,6 +7,7 @@ import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { EmploymentStatus, WorkType } from '@prisma/client';
 import GoogleCalendarService from './GoogleCalendarService';
+import NotificationService from './NotificationService';
 
 export class TalentApplicationService {
   /**
@@ -42,6 +43,30 @@ export class TalentApplicationService {
     });
 
     logger.info(`Talent application submitted: ${profile.email}`);
+    
+    // Notify all admins about new talent application
+    try {
+      const admins = await prisma.user.findMany({
+        where: { role: 'ADMIN' },
+        select: { id: true },
+      });
+
+      for (const admin of admins) {
+        await NotificationService.createNotification({
+          userId: admin.id,
+          type: 'INFO',
+          title: 'New Talent Application',
+          message: `${profile.firstName} ${profile.lastName} applied as ${profile.primaryExpertise}`,
+          actionUrl: `/admin-dashboard/talent/${profile.id}`,
+          actionLabel: 'Review Application',
+        });
+      }
+
+      logger.info(`Created notifications for ${admins.length} admins about new talent application`);
+    } catch (error: any) {
+      logger.error('Failed to create admin notifications:', error);
+      // Don't fail the application if notification creation fails
+    }
     
     return profile;
   }
@@ -98,6 +123,30 @@ export class TalentApplicationService {
     });
 
     logger.info(`Meeting scheduled for talent: ${profile.email}`);
+    
+    // Notify all admins about interview scheduled
+    try {
+      const admins = await prisma.user.findMany({
+        where: { role: 'ADMIN' },
+        select: { id: true },
+      });
+
+      for (const admin of admins) {
+        await NotificationService.createNotification({
+          userId: admin.id,
+          type: 'SUCCESS',
+          title: 'Interview Scheduled',
+          message: `Interview scheduled with ${profile.firstName} ${profile.lastName} (${profile.primaryExpertise})`,
+          actionUrl: `/admin-dashboard/talent/${profile.id}`,
+          actionLabel: 'View Details',
+        });
+      }
+
+      logger.info(`Created notifications for ${admins.length} admins about interview scheduled`);
+    } catch (error: any) {
+      logger.error('Failed to create admin notifications:', error);
+      // Don't fail the scheduling if notification creation fails
+    }
     
     return profile;
   }
