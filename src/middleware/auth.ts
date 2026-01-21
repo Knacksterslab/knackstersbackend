@@ -11,11 +11,19 @@ export interface AuthRequest extends SessionRequest {
 
 // Middleware to verify session exists and set userId
 export const requireAuth = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/b64e0ab6-7d71-4fbd-bdcc-a8b7f534a7a1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:15',message:'requireAuth entry',data:{path:req.path,method:req.method,hasSession:!!req.session,origin:req.headers.origin},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1,H2,H3,H4'})}).catch(()=>{});
+  // #endregion
+  
   // First verify the session with SuperTokens
   await verifySession({
     sessionRequired: true,
     overrideGlobalClaimValidators: () => [],
   })(req, res, async (err?: any) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/b64e0ab6-7d71-4fbd-bdcc-a8b7f534a7a1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:23',message:'verifySession callback',data:{hasError:!!err,errorMsg:err?.message,hasSession:!!req.session},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3,H4'})}).catch(()=>{});
+    // #endregion
+    
     if (err) return next(err);
     
     // After session is verified, set userId and role on the request
@@ -23,6 +31,10 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
       req.userId = req.session.getUserId();
       const payload = req.session.getAccessTokenPayload();
       req.role = payload.role as UserRole;
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/b64e0ab6-7d71-4fbd-bdcc-a8b7f534a7a1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:33',message:'Session verified and userId set',data:{userId:req.userId,role:req.role},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
+      // #endregion
     }
     
     next();

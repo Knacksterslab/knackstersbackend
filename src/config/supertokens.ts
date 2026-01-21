@@ -15,6 +15,12 @@ export enum UserRole {
 }
 
 export function initSupertokens() {
+  // #region agent log
+  const apiDomain = process.env.API_DOMAIN || 'http://localhost:5000';
+  const websiteDomain = process.env.WEBSITE_DOMAIN || 'http://localhost:3000';
+  fetch('http://127.0.0.1:7243/ingest/b64e0ab6-7d71-4fbd-bdcc-a8b7f534a7a1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'supertokens.ts:18',message:'SuperTokens init config',data:{apiDomain:apiDomain,websiteDomain:websiteDomain,hasApiKey:!!process.env.SUPERTOKENS_API_KEY},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2,H5'})}).catch(()=>{});
+  // #endregion
+  
   supertokens.init({
     framework: 'express',
     supertokens: {
@@ -23,8 +29,8 @@ export function initSupertokens() {
     },
     appInfo: {
       appName: process.env.APP_NAME || 'Knacksters',
-      apiDomain: process.env.API_DOMAIN || 'http://localhost:5000',
-      websiteDomain: process.env.WEBSITE_DOMAIN || 'http://localhost:3000',
+      apiDomain: apiDomain,
+      websiteDomain: websiteDomain,
       apiBasePath: '/api/auth',
       websiteBasePath: '/auth',
     },

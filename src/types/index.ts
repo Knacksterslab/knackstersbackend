@@ -8,6 +8,7 @@ import { UserRole, SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
 // Extend Express Request to include user data from SuperTokens
 export interface AuthRequest extends Request {
   userId?: string;
+  role?: UserRole;
   session?: {
     userId: string;
     role: UserRole;

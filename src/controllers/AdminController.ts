@@ -36,6 +36,10 @@ export class AdminController {
 
   async getUsers(req: AuthRequest, res: Response) {
     try {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/b64e0ab6-7d71-4fbd-bdcc-a8b7f534a7a1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AdminController.ts:39',message:'getUsers entry',data:{hasSession:!!req.session,reqUserId:req.userId,reqRole:req.role},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
+      // #endregion
+      
       const adminId = this.getUserId(req, res);
       if (!adminId) return;
 
