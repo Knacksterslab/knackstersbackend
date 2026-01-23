@@ -41,17 +41,14 @@ export class StripeController {
       const { setupIntentId } = req.body;
       if (!setupIntentId) return ApiResponse.badRequest(res, 'setupIntentId is required');
 
-      const paymentMethod = await PaymentMethodService.addPaymentMethod({
-        userId,
-        stripePaymentMethodId: setupIntentId,
-        type: 'CARD',
-        cardBrand: 'VISA',
-        cardLastFour: '0000',
-        cardExpMonth: 12,
-        cardExpYear: 2025,
-        isDefault: true,
-      });
-      return ApiResponse.success(res, paymentMethod, 201);
+      // Use StripeService.savePaymentMethod to properly extract PaymentMethod ID from SetupIntent
+      await StripeService.savePaymentMethod(userId, setupIntentId);
+
+      // Return the saved payment method
+      const paymentMethods = await PaymentMethodService.getUserPaymentMethods(userId);
+      const savedMethod = paymentMethods[0]; // Most recent (should be default)
+
+      return ApiResponse.success(res, savedMethod, 201);
     } catch (error: any) {
       logger.error('confirmPaymentMethod failed', error);
       return ApiResponse.error(res, error.message || 'Failed to save payment method');
@@ -94,6 +91,60 @@ export class StripeController {
     } catch (error: any) {
       logger.error('deletePaymentMethod failed', error);
       return ApiResponse.error(res, error.message || 'Failed to delete payment method');
+    }
+  }
+
+  static async subscribe(req: AuthRequest, res: Response) {
+    try {
+      const userId = this.getUserId(req, res);
+      if (!userId) return;
+
+      const { plan } = req.body;
+      if (!plan) {
+        return ApiResponse.badRequest(res, 'Plan is required');
+      }
+
+      // Validate plan
+      const validPlans = ['STARTER', 'GROWTH', 'ENTERPRISE'];
+      if (!validPlans.includes(plan)) {
+        return ApiResponse.badRequest(res, 'Invalid plan. Must be STARTER, GROWTH, or ENTERPRISE');
+      }
+
+      // Check if user already has an active subscription
+      const { prisma } = await import('../lib/prisma');
+      const existingSubscription = await prisma.subscription.findFirst({
+        where: {
+          userId,
+          status: 'ACTIVE',
+        },
+      });
+
+      if (existingSubscription) {
+        return ApiResponse.badRequest(res, 'You already have an active subscription');
+      }
+
+      // Activate subscription using StripeService
+      logger.info(`Activating ${plan} subscription for user ${userId}`);
+      const result = await StripeService.activateSubscription(userId, plan);
+
+      return ApiResponse.success(res, {
+        message: 'Subscription activated successfully',
+        subscriptionId: result.subscriptionId,
+        invoiceId: result.invoiceId,
+      }, 201);
+    } catch (error: any) {
+      logger.error('Subscribe failed', error);
+      
+      // Handle specific error cases
+      if (error.message.includes('no payment method')) {
+        return ApiResponse.badRequest(res, 'Please add a payment method before subscribing');
+      }
+      
+      if (error.message.includes('Enterprise plan requires custom pricing')) {
+        return ApiResponse.badRequest(res, 'Enterprise plan requires a strategy call. Please contact your account manager.');
+      }
+
+      return ApiResponse.error(res, error.message || 'Failed to activate subscription');
     }
   }
 }

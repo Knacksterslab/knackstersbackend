@@ -5,19 +5,19 @@
 
 export const PLAN_CONFIG = {
   STARTER: {
-    monthlyPrice: 12500,
-    yearlyPrice: 125000,
+    monthlyPrice: 1250000, // $12,500 in cents
+    yearlyPrice: 12500000, // $125,000 in cents
     monthlyHours: 200,
   },
   GROWTH: {
-    monthlyPrice: 25000,
-    yearlyPrice: 250000,
+    monthlyPrice: 2500000, // $25,000 in cents
+    yearlyPrice: 25000000, // $250,000 in cents
     monthlyHours: 450,
   },
   ENTERPRISE: {
-    monthlyPrice: 50000,
-    yearlyPrice: 500000,
-    monthlyHours: 1200,
+    monthlyPrice: 0, // Custom pricing
+    yearlyPrice: 0,
+    monthlyHours: 0, // Custom hours
   },
   CUSTOM: {
     monthlyPrice: 0,

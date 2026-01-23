@@ -13,9 +13,6 @@ export class DashboardService {
    * Get complete dashboard overview for a client
    */
   async getDashboardOverview(userId: string): Promise<DashboardOverview> {
-    console.log('=== DASHBOARD SERVICE START ===');
-    console.log('Fetching dashboard for userId:', userId);
-    console.log('UserId type:', typeof userId, 'length:', userId?.length);
 
     // Fetch user with account manager
     const user = await prisma.user.findUnique({
@@ -33,19 +30,7 @@ export class DashboardService {
       },
     });
 
-    console.log('User lookup result:', !!user);
-    if (user) {
-      console.log('User found with email:', user.email, 'role:', user.role);
-      console.log('User ID in DB:', user.id);
-    } else {
-      console.log('User NOT found in database');
-      // Let's try to find any user with similar email or check if users exist at all
-      const allUsers = await prisma.user.findMany({ take: 5, select: { id: true, email: true } });
-      console.log('Sample users in DB:', allUsers);
-    }
-
     if (!user) {
-      console.log('Throwing User not found error');
       throw new Error('User not found');
     }
 
@@ -115,6 +100,7 @@ export class DashboardService {
           videoRoomUrl: true,
           title: true,
           description: true,
+          googleCalendarEventId: true, // Cal.com booking UID for rescheduling/canceling
         },
       });
 
@@ -197,6 +183,7 @@ export class DashboardService {
               videoRoomUrl: upcomingMeeting.videoRoomUrl,
               title: upcomingMeeting.title,
               description: upcomingMeeting.description,
+              bookingId: upcomingMeeting.googleCalendarEventId, // Cal.com UID
             }
           : null,
       };

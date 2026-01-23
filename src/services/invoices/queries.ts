@@ -54,8 +54,8 @@ export class InvoiceQueries {
     ]);
 
     return {
-      totalPaid: Number(totalPaid._sum?.total || 0),
-      totalPending: Number(totalPending._sum?.total || 0),
+      totalPaid: Number(totalPaid._sum?.total || 0) / 100, // Convert cents to dollars
+      totalPending: Number(totalPending._sum?.total || 0) / 100, // Convert cents to dollars
       totalFailed,
       recentInvoices,
     };

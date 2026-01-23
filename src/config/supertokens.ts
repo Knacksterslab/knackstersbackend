@@ -15,16 +15,16 @@ export enum UserRole {
 }
 
 export function initSupertokens() {
-  const apiDomain = process.env.API_DOMAIN || 'http://localhost:5000';
-  const websiteDomain = process.env.WEBSITE_DOMAIN || 'http://localhost:3000';
+  const apiDomain = process.env.API_DOMAIN || 'http://localhost:3000';
+  const websiteDomain = process.env.WEBSITE_DOMAIN || 'http://localhost:3001';
   
-  console.log('[DEBUG] SuperTokens init config:', {
-    apiDomain: apiDomain,
-    websiteDomain: websiteDomain,
-    hasApiKey: !!process.env.SUPERTOKENS_API_KEY,
-    hasFrontendUrl: !!process.env.FRONTEND_URL,
-    frontendUrl: process.env.FRONTEND_URL,
-  });
+  // Only log in development
+  if (process.env.NODE_ENV !== 'production') {
+    logger.info('SuperTokens initialized', {
+      apiDomain,
+      websiteDomain,
+    });
+  }
   
   supertokens.init({
     framework: 'express',

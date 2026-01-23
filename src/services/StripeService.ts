@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
+import { PLAN_CONFIG } from './subscriptions/config';
 
 const prisma = new PrismaClient();
 
@@ -156,39 +157,50 @@ export class StripeService {
       priceAmount = customPriceAmount;
       monthlyHours = 0; // Enterprise custom
     } else {
-      switch (plan) {
-        case 'STARTER':
-          priceAmount = 12500;
-          monthlyHours = 200;
-          break;
-        case 'GROWTH':
-          priceAmount = 25000;
-          monthlyHours = 450;
-          break;
-        case 'ENTERPRISE':
-          throw new Error('Enterprise plan requires custom pricing');
-        default:
-          throw new Error('Invalid plan');
+      const planConfig = PLAN_CONFIG[plan];
+      if (!planConfig) {
+        throw new Error('Invalid plan');
       }
+      if (plan === 'ENTERPRISE') {
+        throw new Error('Enterprise plan requires custom pricing');
+      }
+      priceAmount = planConfig.monthlyPrice;
+      monthlyHours = planConfig.monthlyHours;
     }
 
     // Charge the customer
+    logger.info(`Creating payment intent for ${plan} plan: $${priceAmount / 100} (${priceAmount} cents)`);
+    
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: priceAmount * 100, // Convert to cents
+      amount: priceAmount, // Already in cents from config
       currency: 'usd',
       customer: user.stripeCustomerId,
       payment_method: paymentMethod.stripePaymentMethodId!,
       confirm: true,
+      off_session: true, // Allow charging saved payment method without customer present
       description: `${plan} Plan - First Month`,
       metadata: {
         userId: user.id,
         plan: plan,
       },
-      return_url: `${process.env.WEBSITE_DOMAIN}/dashboard`,
     });
 
-    if (paymentIntent.status !== 'succeeded') {
-      throw new Error('Payment failed');
+    logger.info(`Payment intent created: ${paymentIntent.id}, status: ${paymentIntent.status}`);
+
+    // Handle payment intent status
+    if (paymentIntent.status === 'requires_action' || paymentIntent.status === 'requires_payment_method') {
+      logger.warn(`Payment requires additional action: ${paymentIntent.status}`);
+      throw new Error('Payment requires additional authentication. Please try again or use a different payment method.');
+    }
+
+    if (paymentIntent.status === 'processing') {
+      logger.info('Payment is processing...');
+      // For processing status, we'll still create the subscription but mark it appropriately
+    }
+
+    if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'processing') {
+      logger.error(`Payment failed with status: ${paymentIntent.status}`);
+      throw new Error(`Payment failed with status: ${paymentIntent.status}`);
     }
 
     // Create subscription in database

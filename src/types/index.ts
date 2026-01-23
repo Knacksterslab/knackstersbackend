@@ -74,6 +74,7 @@ export interface DashboardOverview {
     videoRoomUrl?: string | null;
     title?: string;
     description?: string | null;
+    bookingId?: string | null;
   } | null;
 }
 

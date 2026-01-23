@@ -36,15 +36,8 @@ export class AdminController {
 
   async getUsers(req: AuthRequest, res: Response) {
     try {
-      console.log('[DEBUG] AdminController.getUsers entry:', {
-        hasSession: !!req.session,
-        reqUserId: req.userId,
-        reqRole: req.role,
-      });
-      
       const adminId = this.getUserId(req, res);
       if (!adminId) {
-        console.log('[DEBUG] AdminController.getUsers: getUserId returned null');
         return;
       }
 

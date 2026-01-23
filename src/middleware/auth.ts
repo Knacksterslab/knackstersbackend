@@ -11,26 +11,11 @@ export interface AuthRequest extends SessionRequest {
 
 // Middleware to verify session exists and set userId
 export const requireAuth = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  console.log('[DEBUG] requireAuth entry:', {
-    path: req.path,
-    method: req.method,
-    hasSession: !!req.session,
-    origin: req.headers.origin,
-    cookies: Object.keys(req.cookies || {}),
-  });
-  
   // First verify the session with SuperTokens
   await verifySession({
     sessionRequired: true,
     overrideGlobalClaimValidators: () => [],
   })(req, res, async (err?: any) => {
-    console.log('[DEBUG] verifySession callback:', {
-      hasError: !!err,
-      errorMsg: err?.message,
-      errorType: err?.type,
-      hasSession: !!req.session,
-    });
-    
     if (err) return next(err);
     
     // After session is verified, set userId and role on the request
@@ -38,11 +23,6 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
       req.userId = req.session.getUserId();
       const payload = req.session.getAccessTokenPayload();
       req.role = payload.role as UserRole;
-      
-      console.log('[DEBUG] Session verified and userId set:', {
-        userId: req.userId,
-        role: req.role,
-      });
     }
     
     next();

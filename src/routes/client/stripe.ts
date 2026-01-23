@@ -14,4 +14,7 @@ router.get('/payment-methods', (req, res) => StripeController.getPaymentMethods(
 router.patch('/payment-methods/:paymentMethodId/default', (req, res) => StripeController.setDefaultPaymentMethod(req as any, res));
 router.delete('/payment-methods/:paymentMethodId', (req, res) => StripeController.deletePaymentMethod(req as any, res));
 
+// Subscription management
+router.post('/subscribe', (req, res) => StripeController.subscribe(req as any, res));
+
 export default router;

@@ -60,7 +60,7 @@ import publicContentRoutes from './routes/public/content';
 import calcomWebhookRoutes from './routes/webhooks/calcom';
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
 
 // Security middleware
 app.use(helmet({
@@ -73,19 +73,12 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   'https://www.knacksters.co',
   'https://knacksters.co',
-  'http://localhost:3000', // Local development
-  'http://localhost:3001', // Alternative local port
+  'http://localhost:3001', // Local development frontend
+  'http://localhost:3000', // Local development (for backward compatibility)
 ].filter(Boolean); // Remove any undefined values
 
 app.use(cors({
   origin: (origin, callback) => {
-    console.log('[DEBUG] CORS origin check:', {
-      origin: origin,
-      allowedOrigins: allowedOrigins,
-      hasOrigin: !!origin,
-      isAllowed: origin ? allowedOrigins.includes(origin) : true,
-    });
-    
     // Allow requests with no origin (like mobile apps, curl, Postman, etc.)
     if (!origin) {
       return callback(null, true);
@@ -95,7 +88,6 @@ app.use(cors({
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      // Log for debugging (remove in production if needed)
       logger.warn(`CORS blocked origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
@@ -185,7 +177,8 @@ app.use((_req: Request, res: Response) => {
 });
 
 // Start server with proper cleanup
-const server = app.listen(PORT, () => {
+// Bind to 0.0.0.0 to allow Windows to connect to WSL backend
+const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`Backend server running on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
