@@ -82,7 +82,7 @@ export class GoogleCalendarService {
         },
         attendees: [
           { email: data.email },
-          { email: process.env.KNACKSTERS_TEAM_EMAIL || 'team@knacksters.com' },
+          { email: process.env.KNACKSTERS_TEAM_EMAIL || 'connect@knacksters.co' },
         ],
         conferenceData: {
           createRequest: {
