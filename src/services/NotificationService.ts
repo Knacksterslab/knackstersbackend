@@ -15,6 +15,24 @@ export class NotificationService {
     actionUrl?: string;
     actionLabel?: string;
   }) {
+    // Check for duplicate notification within the last 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    
+    const existingNotification = await prisma.notification.findFirst({
+      where: {
+        userId: data.userId,
+        type: data.type,
+        title: data.title,
+        message: data.message,
+        createdAt: { gte: fiveMinutesAgo }
+      }
+    });
+
+    // If duplicate found, return existing notification instead of creating new
+    if (existingNotification) {
+      return existingNotification;
+    }
+
     return prisma.notification.create({ data });
   }
 

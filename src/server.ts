@@ -37,6 +37,8 @@ import timeRoutes from './routes/client/time';
 import billingRoutes from './routes/client/billing';
 import meetingsRoutes from './routes/client/meetings';
 import stripeRoutes from './routes/client/stripe';
+import supportRoutes from './routes/client/support';
+import searchRoutes from './routes/client/search';
 
 // User routes
 import userPreferencesRoutes from './routes/user/preferences';
@@ -146,6 +148,8 @@ app.use('/api/client/time', timeRoutes);
 app.use('/api/client/billing', billingRoutes);
 app.use('/api/client/meetings', meetingsRoutes);
 app.use('/api/client/stripe', stripeRoutes);
+app.use('/api/client/support', supportRoutes);
+app.use('/api/client/search', searchRoutes);
 
 // User Routes (protected)
 app.use('/api/user/preferences', userPreferencesRoutes);

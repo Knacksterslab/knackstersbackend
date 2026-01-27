@@ -40,30 +40,30 @@ export class DashboardService {
       // Get current hours balance (may be null for new users)
       const hoursBalance = await HoursBalanceService.getCurrentBalance(userId);
 
-      // Get recent tasks (will be empty array for new users)
-      const recentTasks = await prisma.task.findMany({
+      // Get recent projects (work requests) with their tasks
+      const recentProjects = await prisma.project.findMany({
         where: {
-          project: {
-            clientId: userId,
-          },
+          clientId: userId,
           status: {
-            in: ['ACTIVE', 'IN_REVIEW'],
+            in: ['NOT_STARTED', 'IN_PROGRESS'],
           },
         },
-        take: 5,
-        orderBy: {
-          updatedAt: 'desc',
-        },
+        take: 10,
+        orderBy: [
+          { createdAt: 'desc' },
+        ],
         include: {
-          project: {
-            select: {
-              title: true,
+          tasks: {
+            include: {
+              assignedTo: {
+                select: {
+                  fullName: true,
+                  avatarUrl: true,
+                },
+              },
             },
-          },
-          assignedTo: {
-            select: {
-              fullName: true,
-              avatarUrl: true,
+            orderBy: {
+              createdAt: 'asc',
             },
           },
         },
@@ -143,20 +143,32 @@ export class DashboardService {
                 : 0,
             }
           : null,
-        recentTasks: recentTasks.map((task) => ({
-          id: task.id,
-          taskNumber: task.taskNumber,
-          name: task.name,
-          status: task.status,
-          projectName: task.project.title,
-          assignedTo: task.assignedTo
-            ? {
-                fullName: task.assignedTo.fullName || 'Unassigned',
-                avatarUrl: task.assignedTo.avatarUrl,
-              }
-            : null,
-          dueDate: task.dueDate,
-          loggedMinutes: Number(task.loggedMinutes),
+        recentProjects: recentProjects.map((project) => ({
+          id: project.id,
+          projectNumber: project.projectNumber,
+          title: project.title,
+          description: project.description,
+          status: project.status,
+          priority: project.priority,
+          estimatedHours: project.estimatedHours ? Number(project.estimatedHours) : null,
+          dueDate: project.dueDate,
+          createdAt: project.createdAt,
+          tasks: project.tasks.map((task) => ({
+            id: task.id,
+            taskNumber: task.taskNumber,
+            name: task.name,
+            status: task.status,
+            priority: task.priority,
+            assignedTo: task.assignedTo
+              ? {
+                  fullName: task.assignedTo.fullName || 'Unassigned',
+                  avatarUrl: task.assignedTo.avatarUrl,
+                }
+              : null,
+            dueDate: task.dueDate,
+            loggedMinutes: Number(task.loggedMinutes),
+            estimatedMinutes: task.estimatedMinutes,
+          })),
         })),
         notifications: notifications.map((notif) => ({
           id: notif.id,
@@ -194,16 +206,22 @@ export class DashboardService {
    */
   async getDashboardStats(userId: string) {
     const [
-      totalProjects,
-      activeProjects,
+      totalRequests,
+      pendingRequests,
+      activeRequests,
+      completedRequests,
       totalTasks,
+      pendingTasks,
       activeTasks,
       completedTasks,
       unreadNotifications,
     ] = await Promise.all([
       prisma.project.count({ where: { clientId: userId } }),
+      prisma.project.count({ where: { clientId: userId, status: 'NOT_STARTED' } }),
       prisma.project.count({ where: { clientId: userId, status: 'IN_PROGRESS' } }),
+      prisma.project.count({ where: { clientId: userId, status: 'COMPLETED' } }),
       prisma.task.count({ where: { project: { clientId: userId } } }),
+      prisma.task.count({ where: { project: { clientId: userId }, status: 'PENDING' } }),
       prisma.task.count({
         where: { project: { clientId: userId }, status: { in: ['ACTIVE', 'IN_REVIEW'] } },
       }),
@@ -212,12 +230,15 @@ export class DashboardService {
     ]);
 
     return {
-      projects: {
-        total: totalProjects,
-        active: activeProjects,
+      requests: {
+        total: totalRequests,
+        pending: pendingRequests,
+        active: activeRequests,
+        completed: completedRequests,
       },
       tasks: {
         total: totalTasks,
+        pending: pendingTasks,
         active: activeTasks,
         completed: completedTasks,
       },

@@ -6,6 +6,7 @@
 import { MeetingType, MeetingStatus } from '@prisma/client';
 import { MeetingQueries } from './meetings/queries';
 import { MeetingMutations } from './meetings/mutations';
+import prisma from '../lib/prisma';
 
 export class MeetingService {
   // Queries
@@ -55,6 +56,62 @@ export class MeetingService {
     }
 
     return MeetingMutations.createMeeting(data);
+  }
+
+  async saveCalcomBooking(data: {
+    clientId: string;
+    bookingId: string;
+    scheduledAt: Date;
+    durationMinutes: number;
+    videoCallUrl?: string;
+    title?: string;
+    description?: string;
+  }) {
+    // Check if booking already exists (prevent duplicates)
+    const existing = await prisma.meeting.findFirst({
+      where: { googleCalendarEventId: data.bookingId }
+    });
+
+    if (existing) {
+      return existing; // Return existing meeting if already saved
+    }
+
+    // Get the client user to find their assigned account manager
+    const user = await prisma.user.findUnique({
+      where: { id: data.clientId },
+      include: { accountManager: true }
+    });
+
+    if (!user || user.role !== 'CLIENT') {
+      throw new Error('Client not found');
+    }
+
+    // Use assigned account manager if available, otherwise use default/first manager
+    let managerId = user.accountManagerId;
+    if (!managerId) {
+      const defaultManager = await prisma.user.findFirst({
+        where: { role: 'MANAGER', status: 'ACTIVE' },
+        orderBy: { createdAt: 'asc' }
+      });
+      if (!defaultManager) {
+        throw new Error('No manager available');
+      }
+      managerId = defaultManager.id;
+    }
+
+    // Create meeting with Cal.com booking data
+    return MeetingMutations.createMeeting({
+      clientId: data.clientId,
+      accountManagerId: managerId,
+      meetingType: 'MEET_AND_GREET',
+      scheduledAt: data.scheduledAt,
+      durationMinutes: data.durationMinutes,
+      meetingLink: data.videoCallUrl,
+      agenda: data.description || 'Client onboarding strategy call',
+      bookingId: data.bookingId,
+      title: data.title,
+      location: 'video_call',
+    });
   }
 
   async updateMeeting(meetingId: string, updates: any) {

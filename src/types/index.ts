@@ -58,7 +58,7 @@ export interface DashboardOverview {
   user: UserProfile;
   hoursBalance: HoursBalanceData | null;
   subscription: SubscriptionData | null;
-  recentTasks: TaskSummary[];
+  recentProjects: ProjectSummary[];
   notifications: NotificationSummary[];
   accountManager?: {
     id: string;
@@ -78,18 +78,32 @@ export interface DashboardOverview {
   } | null;
 }
 
+export interface ProjectSummary {
+  id: string;
+  projectNumber: string;
+  title: string;
+  description?: string | null;
+  status: string;
+  priority: string;
+  estimatedHours?: number | null;
+  dueDate?: Date | null;
+  createdAt: Date;
+  tasks: TaskSummary[];
+}
+
 export interface TaskSummary {
   id: string;
   taskNumber: string;
   name: string;
   status: string;
-  projectName: string;
+  priority: string;
   assignedTo?: {
     fullName: string;
     avatarUrl?: string | null;
   } | null;
   dueDate?: Date | null;
   loggedMinutes: number;
+  estimatedMinutes?: number | null;
 }
 
 export interface NotificationSummary {

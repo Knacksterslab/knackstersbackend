@@ -18,17 +18,20 @@ export class MeetingMutations {
     agenda?: string;
     location?: string;
     meetingLink?: string;
+    bookingId?: string;
+    title?: string;
   }) {
     const meeting = await prisma.meeting.create({
       data: {
         clientId: data.clientId,
         accountManagerId: data.accountManagerId,
         type: data.meetingType,
-        title: `${data.meetingType.replace(/_/g, ' ')} Meeting`,
+        title: data.title || `${data.meetingType.replace(/_/g, ' ')} Meeting`,
         description: data.agenda,
         scheduledAt: data.scheduledAt,
         durationMinutes: data.durationMinutes,
         videoRoomUrl: data.meetingLink,
+        googleCalendarEventId: data.bookingId,
         status: 'SCHEDULED',
       },
       include: {

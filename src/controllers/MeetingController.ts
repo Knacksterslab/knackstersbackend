@@ -80,6 +80,44 @@ export class MeetingController {
     }
   }
 
+  static async saveCalcomBooking(req: AuthRequest, res: Response) {
+    try {
+      const userId = this.getUserId(req, res);
+      if (!userId) return;
+
+      const { bookingId, scheduledAt, endTime, durationMinutes, videoCallUrl, title, description } = req.body;
+
+      const validation = Validators.requireFields(req.body, ['bookingId', 'scheduledAt']);
+      if (!validation.valid) {
+        return ApiResponse.badRequest(res, `Missing fields: ${validation.missing.join(', ')}`);
+      }
+
+      // Calculate duration if not provided
+      let duration = durationMinutes;
+      if (!duration && scheduledAt && endTime) {
+        const start = new Date(scheduledAt);
+        const end = new Date(endTime);
+        duration = Math.round((end.getTime() - start.getTime()) / (1000 * 60));
+      }
+      if (!duration) duration = 30; // Default to 30 minutes
+
+      const meeting = await MeetingService.saveCalcomBooking({
+        clientId: userId,
+        bookingId,
+        scheduledAt: new Date(scheduledAt),
+        durationMinutes: duration,
+        videoCallUrl,
+        title,
+        description,
+      });
+
+      return ApiResponse.success(res, meeting, 201);
+    } catch (error: any) {
+      logger.error('saveCalcomBooking failed', error);
+      return ApiResponse.error(res, error.message || 'Failed to save Cal.com booking');
+    }
+  }
+
   static async rescheduleMeeting(req: AuthRequest, res: Response) {
     try {
       const userId = this.getUserId(req, res);

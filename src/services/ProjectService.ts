@@ -3,7 +3,7 @@
  * Orchestrates project operations
  */
 
-import { ProjectStatus } from '@prisma/client';
+import { ProjectStatus, PriorityLevel } from '@prisma/client';
 import { ProjectQueries } from './projects/queries';
 import { ProjectMutations } from './projects/mutations';
 
@@ -26,6 +26,7 @@ export class ProjectService {
     description?: string;
     estimatedHours?: number;
     dueDate?: Date;
+    priority?: PriorityLevel;
   }) {
     return ProjectMutations.createProject(data);
   }

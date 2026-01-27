@@ -4,7 +4,7 @@
  */
 
 import { prisma } from '../../lib/prisma';
-import { ProjectStatus } from '@prisma/client';
+import { ProjectStatus, PriorityLevel } from '@prisma/client';
 import NotificationService from '../NotificationService';
 
 export class ProjectMutations {
@@ -14,17 +14,55 @@ export class ProjectMutations {
     description?: string;
     estimatedHours?: number;
     dueDate?: Date;
+    priority?: PriorityLevel;
   }) {
     const projectCount = await prisma.project.count({ where: { clientId: data.clientId } });
     const projectNumber = `PROJ-${Date.now()}-${String(projectCount + 1).padStart(3, '0')}`;
 
-    return prisma.project.create({
+    const project = await prisma.project.create({
       data: {
         ...data,
         projectNumber,
         status: 'NOT_STARTED',
       },
     });
+
+    // Auto-create initial task for the project (PENDING until manager assigns talent)
+    const taskCount = await prisma.task.count({ where: { projectId: project.id } });
+    const taskNumber = `${projectNumber}-T${String(taskCount + 1).padStart(3, '0')}`;
+
+    await prisma.task.create({
+      data: {
+        projectId: project.id,
+        taskNumber,
+        name: data.title,
+        description: data.description,
+        status: 'PENDING',
+        priority: data.priority || 'MEDIUM',
+        estimatedMinutes: data.estimatedHours ? data.estimatedHours * 60 : undefined,
+        dueDate: data.dueDate,
+        createdById: data.clientId,
+      },
+    });
+
+    // Notify account manager about new request
+    const client = await prisma.user.findUnique({
+      where: { id: data.clientId },
+      select: { accountManagerId: true, fullName: true }
+    });
+
+    if (client?.accountManagerId) {
+      await NotificationService.createNotification({
+        userId: client.accountManagerId,
+        type: 'INFO',
+        title: 'New Task Request',
+        message: `${client.fullName || 'Client'} requested: ${data.title}`,
+        actionUrl: `/projects/${project.id}`,
+        actionLabel: 'Review Request',
+      });
+    }
+
+    return project;
   }
 
   static async updateProject(projectId: string, updates: Partial<{

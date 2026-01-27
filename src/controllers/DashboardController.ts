@@ -41,6 +41,7 @@ export class DashboardController {
           recentTasks: [],
           notifications: [],
           accountManager: null,
+          upcomingMeeting: null,
         });
       }
 
