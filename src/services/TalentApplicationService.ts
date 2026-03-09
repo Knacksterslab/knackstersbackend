@@ -8,6 +8,7 @@ import { logger } from '../utils/logger';
 import { EmploymentStatus, WorkType } from '@prisma/client';
 import GoogleCalendarService from './GoogleCalendarService';
 import NotificationService from './NotificationService';
+import { sendTalentInterviewScheduledEmail } from './EmailService';
 
 export class TalentApplicationService {
   /**
@@ -123,6 +124,14 @@ export class TalentApplicationService {
     });
 
     logger.info(`Meeting scheduled for talent: ${profile.email}`);
+
+    // Send interview confirmation email to talent (fire-and-forget)
+    sendTalentInterviewScheduledEmail({
+      firstName: profile.firstName,
+      email: profile.email,
+      preferredMeetingTime: data.preferredMeetingTime,
+      meetingLink: profile.meetingLink,
+    }).catch(err => logger.error('Talent interview email failed', err));
     
     // Notify all admins about interview scheduled
     try {

@@ -4,6 +4,7 @@ import Session from 'supertokens-node/recipe/session';
 import { PrismaClient, UserRole as PrismaUserRole, SolutionType } from '@prisma/client';
 import { logger } from '../utils/logger';
 import ManagerAssignmentService from '../services/ManagerAssignmentService';
+import { sendClientWelcomeEmail, sendAdminNewClientAlert, sendPasswordResetEmail } from '../services/EmailService';
 
 const prisma = new PrismaClient();
 
@@ -41,6 +42,23 @@ export function initSupertokens() {
     },
     recipeList: [
       EmailPassword.init({
+        emailDelivery: {
+          override: (originalImplementation) => {
+            return {
+              ...originalImplementation,
+              sendEmail: async function (input) {
+                if (input.type === 'PASSWORD_RESET') {
+                  await sendPasswordResetEmail({
+                    email: input.user.email,
+                    resetLink: input.passwordResetLink,
+                  });
+                  return;
+                }
+                return originalImplementation.sendEmail(input);
+              },
+            };
+          },
+        },
         signUpFeature: {
           formFields: [
             {
@@ -91,6 +109,21 @@ export function initSupertokens() {
                     });
 
                     logger.info(`User created: ${email} (${role}) with solution: ${selectedSolution}`);
+
+                    // Send emails for CLIENT signups (fire-and-forget)
+                    if (role === PrismaUserRole.CLIENT) {
+                      sendClientWelcomeEmail({
+                        fullName,
+                        email,
+                        selectedSolution,
+                      }).catch(err => logger.error('Welcome email failed', err));
+
+                      sendAdminNewClientAlert({
+                        fullName,
+                        email,
+                        selectedSolution,
+                      }).catch(err => logger.error('Admin new client alert failed', err));
+                    }
 
                     // Auto-assign manager for CLIENT role
                     if (role === PrismaUserRole.CLIENT && selectedSolution) {

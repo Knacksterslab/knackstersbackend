@@ -8,6 +8,7 @@ import TalentApplicationService from '../services/TalentApplicationService';
 import { ApiResponse } from '../utils/response';
 import { logger } from '../utils/logger';
 import { TalentApplicationSchema, TalentScheduleSchema } from '../validation/schemas';
+import { sendTalentApplicationReceivedEmail, sendAdminNewTalentAlert } from '../services/EmailService';
 
 export class TalentApplicationController {
   /**
@@ -21,8 +22,21 @@ export class TalentApplicationController {
 
       const profile = await TalentApplicationService.submitApplication(validatedData);
 
-      // TODO: Send email notification to team
-      // TODO: Send confirmation email to applicant
+      // Send confirmation to applicant + alert to admin (fire-and-forget)
+      sendTalentApplicationReceivedEmail({
+        firstName: profile.firstName,
+        email: profile.email,
+        primaryExpertise: profile.primaryExpertise,
+      }).catch(err => logger.error('Talent application email failed', err));
+
+      sendAdminNewTalentAlert({
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        email: profile.email,
+        primaryExpertise: profile.primaryExpertise,
+        hourlyRate: Number(profile.hourlyRate),
+        profileId: profile.id,
+      }).catch(err => logger.error('Admin talent alert email failed', err));
 
       return ApiResponse.success(res, {
         profileId: profile.id,

@@ -9,6 +9,7 @@ import { ApiResponse } from '../utils/response';
 import { logger } from '../utils/logger';
 import { MeetingType } from '@prisma/client';
 import NotificationService from '../services/NotificationService';
+import { sendClientBookingConfirmationEmail } from '../services/EmailService';
 import crypto from 'crypto';
 
 interface CalComWebhookPayload {
@@ -162,6 +163,16 @@ export class CalComWebhookController {
           bookingId: payload.uid,
           startTime: payload.startTime,
         });
+
+        // Send branded booking confirmation email to client (fire-and-forget)
+        if (user.email) {
+          sendClientBookingConfirmationEmail({
+            fullName: user.fullName ?? attendee.name,
+            email: user.email,
+            startTime,
+            videoCallUrl: payload.location || null,
+          }).catch(err => logger.error('Client booking confirmation email failed', err));
+        }
 
         // Create notification for client
         try {
