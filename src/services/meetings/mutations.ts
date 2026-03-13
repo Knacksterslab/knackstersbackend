@@ -11,7 +11,7 @@ import { MeetingQueries } from './queries';
 export class MeetingMutations {
   static async createMeeting(data: {
     clientId: string;
-    accountManagerId: string;
+    accountManagerId?: string;
     meetingType: MeetingType;
     scheduledAt: Date;
     durationMinutes: number;
@@ -24,7 +24,7 @@ export class MeetingMutations {
     const meeting = await prisma.meeting.create({
       data: {
         clientId: data.clientId,
-        accountManagerId: data.accountManagerId,
+        accountManagerId: data.accountManagerId ?? null,
         type: data.meetingType,
         title: data.title || `${data.meetingType.replace(/_/g, ' ')} Meeting`,
         description: data.agenda,
@@ -40,24 +40,31 @@ export class MeetingMutations {
       },
     });
 
-    await Promise.all([
+    const notifications: Promise<any>[] = [
       NotificationService.createNotification({
         userId: data.clientId,
         type: 'INFO',
         title: 'Meeting Scheduled',
-        message: `Meeting with ${meeting.accountManager?.fullName || 'manager'} scheduled`,
+        message: `Your onboarding call has been booked. We'll see you soon!`,
         actionUrl: `/meetings/${meeting.id}`,
         actionLabel: 'View Meeting',
       }),
-      NotificationService.createNotification({
-        userId: data.accountManagerId,
-        type: 'INFO',
-        title: 'New Meeting',
-        message: `Meeting with ${meeting.client.fullName || 'client'} scheduled`,
-        actionUrl: `/meetings/${meeting.id}`,
-        actionLabel: 'View Meeting',
-      }),
-    ]);
+    ];
+
+    if (data.accountManagerId) {
+      notifications.push(
+        NotificationService.createNotification({
+          userId: data.accountManagerId,
+          type: 'INFO',
+          title: 'New Meeting',
+          message: `Meeting with ${meeting.client.fullName || 'client'} scheduled`,
+          actionUrl: `/meetings/${meeting.id}`,
+          actionLabel: 'View Meeting',
+        })
+      );
+    }
+
+    await Promise.all(notifications);
 
     return meeting;
   }

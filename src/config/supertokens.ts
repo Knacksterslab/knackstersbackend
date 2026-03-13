@@ -1,6 +1,8 @@
 import supertokens from 'supertokens-node';
 import EmailPassword from 'supertokens-node/recipe/emailpassword';
+import ThirdParty from 'supertokens-node/recipe/thirdparty';
 import Session from 'supertokens-node/recipe/session';
+import Dashboard from 'supertokens-node/recipe/dashboard';
 import { PrismaClient, UserRole as PrismaUserRole, SolutionType } from '@prisma/client';
 import { logger } from '../utils/logger';
 import ManagerAssignmentService from '../services/ManagerAssignmentService';
@@ -110,8 +112,11 @@ export function initSupertokens() {
 
                     logger.info(`User created: ${email} (${role}) with solution: ${selectedSolution}`);
 
-                    // Send emails for CLIENT signups (fire-and-forget)
-                    if (role === PrismaUserRole.CLIENT) {
+                    // Send welcome emails for CLIENT signups only when they have
+                    // selected a solution (always true for email/password flow).
+                    // Google sign-up users have no solution yet — their emails are
+                    // deferred to PATCH /api/auth/onboarding after solution selection.
+                    if (role === PrismaUserRole.CLIENT && selectedSolution) {
                       sendClientWelcomeEmail({
                         fullName,
                         email,
@@ -155,6 +160,94 @@ export function initSupertokens() {
             };
           },
         },
+      }),
+      ThirdParty.init({
+        signInAndUpFeature: {
+          providers: [
+            {
+              config: {
+                thirdPartyId: 'google',
+                clients: [
+                  {
+                    clientId: process.env.GOOGLE_CLIENT_ID!,
+                    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        override: {
+          functions: (originalImplementation) => {
+            return {
+              ...originalImplementation,
+              signInUp: async function (input) {
+                const response = await originalImplementation.signInUp(input);
+
+                if (response.status === 'OK') {
+                  try {
+                    const email = response.user.emails[0];
+                    const rawInfo = input.rawUserInfoFromProvider;
+                    const googleProfile = (rawInfo?.fromIdTokenPayload || rawInfo?.fromUserInfoAPI || {}) as Record<string, string>;
+                    const fullName =
+                      googleProfile?.name ||
+                      googleProfile?.given_name ||
+                      (email ? email.split('@')[0] : 'User');
+                    const avatarUrl =
+                      googleProfile?.picture ||
+                      `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`;
+
+                    if (response.createdNewRecipeUser) {
+                      // New Google sign-up — upsert to handle edge cases where
+                      // an email/password account with this email already exists in Prisma
+                      const upsertedUser = await prisma.user.upsert({
+                        where: { email },
+                        create: {
+                          id: response.user.id,
+                          email,
+                          role: PrismaUserRole.CLIENT,
+                          fullName,
+                          avatarUrl,
+                        },
+                        update: {
+                          // Existing email/password user — update avatar if they don't have one
+                          avatarUrl: avatarUrl,
+                        },
+                      });
+
+                      // Only assign manager if truly new; welcome/admin emails are sent
+                      // later (in PATCH /api/auth/onboarding) after solution is chosen.
+                      const isNewPrismaUser = upsertedUser.id === response.user.id;
+                      if (isNewPrismaUser) {
+                        logger.info(`Google user created: ${email} (CLIENT) — emails deferred until onboarding`);
+
+                        ManagerAssignmentService.assignManagerToClient(upsertedUser.id, undefined)
+                          .then((managerId) => {
+                            if (managerId) {
+                              logger.info(`Manager ${managerId} auto-assigned to Google client ${upsertedUser.id}`);
+                            }
+                          })
+                          .catch((err) => logger.error('Manager auto-assignment failed for Google sign-up', err));
+                      } else {
+                        logger.info(`Google sign-in linked to existing Prisma user: ${email}`);
+                      }
+                    } else {
+                      logger.info(`Returning Google user signed in: ${email}`);
+                    }
+                  } catch (error) {
+                    // Never let post-signup logic cause a 500 — log and continue
+                    logger.error('Error in ThirdParty signInUp post-processing', error);
+                  }
+                }
+
+                return response;
+              },
+            };
+          },
+        },
+      }),
+      Dashboard.init({
+        apiKey: process.env.SUPERTOKENS_DASHBOARD_KEY!,
       }),
       Session.init({
         cookieSameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',

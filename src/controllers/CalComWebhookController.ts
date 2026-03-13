@@ -134,7 +134,20 @@ export class CalComWebhookController {
         const endTime = new Date(payload.endTime);
         const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
 
-        // Create Meeting record
+        // Deduplicate: frontend may have already saved this booking via /api/client/meetings/calcom-booking
+        const existingMeeting = await prisma.meeting.findFirst({
+          where: { googleCalendarEventId: payload.uid },
+        });
+
+        if (existingMeeting) {
+          logger.info('Meeting already saved by frontend, skipping duplicate creation', {
+            meetingId: existingMeeting.id,
+            bookingId: payload.uid,
+          });
+          return ApiResponse.success(res, { received: true, meetingId: existingMeeting.id });
+        }
+
+        // Create Meeting record (webhook arrived before frontend POST)
         const meeting = await prisma.meeting.create({
           data: {
             clientId: user.id,
@@ -146,6 +159,7 @@ export class CalComWebhookController {
             timezone: attendee.timeZone,
             status: 'SCHEDULED',
             videoRoomUrl: payload.location || null,
+            googleCalendarEventId: payload.uid,
             attendees: {
               attendee: {
                 email: attendee.email,
@@ -157,7 +171,7 @@ export class CalComWebhookController {
           },
         });
 
-        logger.info('Client meeting created', {
+        logger.info('Client meeting created via webhook', {
           meetingId: meeting.id,
           userId: user.id,
           bookingId: payload.uid,

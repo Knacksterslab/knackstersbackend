@@ -73,33 +73,31 @@ export class MeetingService {
     });
 
     if (existing) {
-      return existing; // Return existing meeting if already saved
+      return existing;
     }
 
-    // Get the client user to find their assigned account manager
+    // Verify the client exists
     const user = await prisma.user.findUnique({
       where: { id: data.clientId },
-      include: { accountManager: true }
+      select: { role: true, accountManagerId: true }
     });
 
     if (!user || user.role !== 'CLIENT') {
       throw new Error('Client not found');
     }
 
-    // Use assigned account manager if available, otherwise use default/first manager
-    let managerId = user.accountManagerId;
+    // Use the assigned manager if available; if not, try to find any active manager.
+    // accountManagerId is nullable on the Meeting model, so we proceed even if none exists.
+    let managerId: string | undefined = user.accountManagerId ?? undefined;
     if (!managerId) {
       const defaultManager = await prisma.user.findFirst({
-        where: { role: 'MANAGER', status: 'ACTIVE' },
-        orderBy: { createdAt: 'asc' }
+        where: { role: 'MANAGER' },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
       });
-      if (!defaultManager) {
-        throw new Error('No manager available');
-      }
-      managerId = defaultManager.id;
+      managerId = defaultManager?.id;
     }
 
-    // Create meeting with Cal.com booking data
     return MeetingMutations.createMeeting({
       clientId: data.clientId,
       accountManagerId: managerId,
@@ -110,7 +108,6 @@ export class MeetingService {
       agenda: data.description || 'Client onboarding strategy call',
       bookingId: data.bookingId,
       title: data.title,
-      location: 'video_call',
     });
   }
 
