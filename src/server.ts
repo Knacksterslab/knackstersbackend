@@ -90,6 +90,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   'https://www.knacksters.co',
   'https://knacksters.co',
+  'https://api.knacksters.co', // Backend's own origin (SuperTokens dashboard)
   'http://localhost:3001', // Local development frontend
   'http://localhost:3000', // Local development (for backward compatibility)
 ].filter(Boolean); // Remove any undefined values
