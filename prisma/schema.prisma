@@ -819,3 +819,13 @@ model TalentProfile {
   @@index([status])
   @@index([createdAt])
 }
+
+model SiteContent {
+  id          String   @id @default(uuid())
+  page        String   @unique
+  content     Json
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("site_content")
+}
