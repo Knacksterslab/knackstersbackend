@@ -59,7 +59,6 @@ DATABASE_URL="postgresql://user:password@localhost:5432/knacksters"
 SUPERTOKENS_CONNECTION_URI=https://try.supertokens.com
 SUPERTOKENS_API_KEY=your_key
 STRIPE_SECRET_KEY=sk_test_your_key
-ADMIN_PASSWORD=your_password
 ```
 
 **Frontend** (`frontend/.env.local`):

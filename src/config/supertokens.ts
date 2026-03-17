@@ -65,7 +65,7 @@ export function initSupertokens() {
           formFields: [
             {
               id: 'role',
-              optional: false,
+              optional: true,
             },
             {
               id: 'name',
@@ -88,7 +88,9 @@ export function initSupertokens() {
               signUpPOST: async function (input) {
                 const formFields = input.formFields;
                 const email = formFields.find(f => f.id === 'email')?.value || '';
-                const role = (formFields.find(f => f.id === 'role')?.value?.toUpperCase() || 'CLIENT') as PrismaUserRole;
+                const requestedRole = (formFields.find(f => f.id === 'role')?.value?.toUpperCase() || 'CLIENT') as PrismaUserRole;
+                // Security: Public signup is always CLIENT. Privileged users are created by existing admins only.
+                const role = PrismaUserRole.CLIENT;
                 const fullName = formFields.find(f => f.id === 'name')?.value || 'User';
                 const selectedSolution = formFields.find(f => f.id === 'selectedSolution')?.value as SolutionType | undefined;
                 const solutionNotes = formFields.find(f => f.id === 'solutionNotes')?.value as string | undefined;
@@ -110,6 +112,13 @@ export function initSupertokens() {
                       },
                     });
 
+                    if (requestedRole !== PrismaUserRole.CLIENT) {
+                      logger.warn('Blocked non-client role request at public signup', {
+                        email,
+                        requestedRole,
+                        enforcedRole: role,
+                      });
+                    }
                     logger.info(`User created: ${email} (${role}) with solution: ${selectedSolution}`);
 
                     // Send welcome emails for CLIENT signups only when they have

@@ -139,10 +139,9 @@ npx prisma generate
 **Error:** `No manager found`
 
 **Solution:**
-Create a manager user first:
+Create a manager user first from an existing admin account:
 ```bash
-npx ts-node scripts/create-admin.ts
-# Or create via admin panel
+# Use Admin Dashboard -> Users -> Create User (Role: MANAGER)
 ```
 
 ### **Issue: Templates Don't Show in UI**

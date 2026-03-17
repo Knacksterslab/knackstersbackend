@@ -57,9 +57,6 @@ WEBSITE_DOMAIN=http://localhost:3000
 STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
 
-# Admin Authentication
-ADMIN_PASSWORD=your_secure_admin_password
-
 # Cal.com Webhook (Optional - for booking integration)
 CAL_COM_WEBHOOK_SECRET=your_calcom_webhook_secret
 ```
@@ -202,7 +199,7 @@ Before deploying to production:
 - [ ] Use production database URL
 - [ ] Use production Stripe keys (live mode)
 - [ ] Set `NODE_ENV=production`
-- [ ] Generate new `ADMIN_PASSWORD` (strong password)
+- [ ] Ensure bootstrap admin user exists (`godmode@knacksters.co`)
 - [ ] Update `FRONTEND_URL`, `API_DOMAIN`, `WEBSITE_DOMAIN` to production URLs
 - [ ] Update Cal.com URLs if using custom domain
 - [ ] Set up email service (optional but recommended)

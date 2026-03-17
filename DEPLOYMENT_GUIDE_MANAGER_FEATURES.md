@@ -344,9 +344,8 @@ npx prisma generate
 **Cause:** No manager user in database
 **Fix:**
 ```bash
-# Create manager user
-npx ts-node scripts/create-admin.ts
-# Choose role: MANAGER
+# Create manager user from an existing admin account
+# Use Admin Dashboard -> Users -> Create User (Role: MANAGER)
 ```
 
 ### **Issue: Templates Don't Show**
