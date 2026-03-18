@@ -425,7 +425,60 @@ export async function sendTalentInterviewScheduledEmail(data: {
   }
 }
 
-// ─── 7. Password Reset (used by SuperTokens emailDelivery) ───────────────────
+// ─── 7. Admin: Invite New User ────────────────────────────────────────────────
+
+export async function sendAdminInviteEmail(data: {
+  firstName: string;
+  email: string;
+  role: 'ADMIN' | 'MANAGER' | 'TALENT';
+  inviteLink: string;
+}): Promise<void> {
+  const roleLabels: Record<string, string> = {
+    ADMIN: 'Admin',
+    MANAGER: 'Account Manager',
+    TALENT: 'Talent',
+  };
+  const roleLabel = roleLabels[data.role] || data.role;
+
+  const html = layout(`
+    <h1 style="font-size:24px;font-weight:700;color:#111827;margin:0 0 8px;">
+      You've been invited to Knacksters
+    </h1>
+    <p style="font-size:15px;color:#6b7280;margin:0 0 24px;">
+      Hi ${data.firstName}, an admin has created a <strong>${roleLabel}</strong> account for you.
+    </p>
+
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 24px;">
+      Click the button below to set your password and access your dashboard.
+      This link expires in <strong>1 hour</strong>.
+    </p>
+
+    ${primaryButton('Set Your Password & Get Started', data.inviteLink)}
+
+    ${divider()}
+
+    <p style="font-size:13px;color:#9ca3af;margin:0;">
+      If you weren't expecting this invite, you can safely ignore this email.
+      Questions? Reach us at
+      <a href="mailto:connect@knacksters.co" style="color:#ea580c;">connect@knacksters.co</a>
+    </p>
+  `);
+
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: data.email,
+      subject: `You've been invited to Knacksters as ${roleLabel}`,
+      html,
+    });
+    logger.info(`Invite email sent to: ${data.email} (${data.role})`);
+  } catch (error) {
+    logger.error('Failed to send admin invite email', error);
+    throw error;
+  }
+}
+
+// ─── 8. Password Reset (used by SuperTokens emailDelivery) ───────────────────
 
 export async function sendPasswordResetEmail(data: {
   email: string;

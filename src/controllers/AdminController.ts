@@ -103,16 +103,11 @@ export class AdminController {
       const adminId = this.getUserId(req, res);
       if (!adminId) return;
 
-      const { email, firstName, lastName, role, specializations, password } = req.body;
+      const { email, firstName, lastName, role, specializations } = req.body;
 
       // Validate required fields
-      if (!email || !firstName || !lastName || !role || !password) {
+      if (!email || !firstName || !lastName || !role) {
         return ApiResponse.error(res, 'Missing required fields', 400);
-      }
-
-      // Validate password
-      if (password.length < 8) {
-        return ApiResponse.error(res, 'Password must be at least 8 characters', 400);
       }
 
       // Validate role
@@ -126,12 +121,11 @@ export class AdminController {
         lastName,
         role,
         specializations,
-        password,
       });
 
       return ApiResponse.success(res, {
         user,
-        message: 'User created successfully. They can now log in with the provided credentials.',
+        message: 'User created successfully. An invite email has been sent so they can set their own password.',
       }, 201);
     } catch (error: any) {
       logger.error('createUser failed', error);

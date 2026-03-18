@@ -5,8 +5,10 @@
 
 import { prisma } from '../lib/prisma';
 import { UserRole, UserStatus, SolutionType } from '@prisma/client';
-import { signUp } from 'supertokens-node/recipe/emailpassword';
+import { signUp, createResetPasswordToken } from 'supertokens-node/recipe/emailpassword';
 import { logger } from '../utils/logger';
+import crypto from 'crypto';
+import { sendAdminInviteEmail } from './EmailService';
 
 export class AdminUserService {
   /**
@@ -225,7 +227,9 @@ export class AdminUserService {
   }
 
   /**
-   * Create new user (ADMIN, MANAGER, or TALENT only)
+   * Create new user (ADMIN, MANAGER, or TALENT only).
+   * No password is set by the admin — a secure invite link is emailed to the
+   * new user so they set their own password on first login.
    */
   async createUser(data: {
     email: string;
@@ -233,7 +237,6 @@ export class AdminUserService {
     lastName: string;
     role: 'ADMIN' | 'MANAGER' | 'TALENT';
     specializations?: string[];
-    password: string;
   }) {
     // Validate role - only allow ADMIN, MANAGER, TALENT creation
     if (!['ADMIN', 'MANAGER', 'TALENT'].includes(data.role)) {
@@ -249,19 +252,21 @@ export class AdminUserService {
       throw new Error('User with this email already exists');
     }
 
-    // STEP 1: Create SuperTokens account FIRST to get the SuperTokens user ID
+    // STEP 1: Create SuperTokens account with a random temp password the user
+    //         will never know — they'll set their own via the invite link.
+    const tempPassword = crypto.randomBytes(32).toString('hex');
     let supertokensUserId: string;
-    
+
     try {
-      const supertokensResponse = await signUp('public', data.email.toLowerCase(), data.password);
-      
+      const supertokensResponse = await signUp('public', data.email.toLowerCase(), tempPassword);
+
       if (supertokensResponse.status !== 'OK') {
         if (supertokensResponse.status === 'EMAIL_ALREADY_EXISTS_ERROR') {
           throw new Error('Email already exists in authentication system');
         }
         throw new Error('Failed to create authentication account');
       }
-      
+
       supertokensUserId = supertokensResponse.user.id;
       logger.info(`SuperTokens account created with ID: ${supertokensUserId} for ${data.email}`);
     } catch (error: any) {
@@ -270,10 +275,11 @@ export class AdminUserService {
     }
 
     // STEP 2: Create Prisma user with the SuperTokens ID
+    let user;
     try {
-      const user = await prisma.user.create({
+      user = await prisma.user.create({
         data: {
-          id: supertokensUserId, // Use SuperTokens ID so they match!
+          id: supertokensUserId,
           email: data.email.toLowerCase(),
           firstName: data.firstName,
           lastName: data.lastName,
@@ -286,12 +292,37 @@ export class AdminUserService {
       });
 
       logger.info(`Prisma user created with matching ID: ${user.id} for ${data.email}`);
-      return user;
     } catch (error: any) {
       logger.error('Failed to create Prisma user', error);
-      // TODO: Ideally, we should delete the SuperTokens user here if Prisma creation fails
       throw new Error(`Database user creation failed: ${error.message}`);
     }
+
+    // STEP 3: Generate a password-reset token and send it as an invite email.
+    //         The new user clicks "Set Your Password" and never needs to know
+    //         the random temp password created above.
+    try {
+      const tokenResponse = await createResetPasswordToken('public', supertokensUserId, data.email.toLowerCase());
+
+      if (tokenResponse.status !== 'OK') {
+        throw new Error('Failed to generate invite token');
+      }
+
+      const websiteDomain = process.env.WEBSITE_DOMAIN || 'https://www.knacksters.co';
+      const inviteLink = `${websiteDomain}/auth/reset-password?token=${tokenResponse.token}&rid=emailpassword`;
+
+      await sendAdminInviteEmail({
+        firstName: data.firstName,
+        email: data.email.toLowerCase(),
+        role: data.role,
+        inviteLink,
+      });
+    } catch (error: any) {
+      // Don't fail the whole creation if the email send fails — the admin can
+      // trigger a password reset manually as a fallback.
+      logger.error('Failed to send invite email', error);
+    }
+
+    return user;
   }
 
   /**
