@@ -132,6 +132,21 @@ export class MeetingMutations {
       },
     });
 
+    // Cancel the booking in Cal.com if we have the booking UID and API key
+    const calApiKey = process.env.CAL_COM_API_KEY;
+    const calBookingUid = currentMeeting.googleCalendarEventId;
+    if (calApiKey && calBookingUid) {
+      try {
+        await fetch(
+          `https://api.cal.com/v1/bookings/${calBookingUid}/cancel?apiKey=${calApiKey}`,
+          { method: 'DELETE', headers: { 'Content-Type': 'application/json' } }
+        );
+      } catch (err) {
+        // Non-fatal: DB record is already cancelled; log and continue
+        console.error('[cancelMeeting] Cal.com API cancel failed:', err);
+      }
+    }
+
     await Promise.all([
       NotificationService.createNotification({
         userId: meeting.clientId,
