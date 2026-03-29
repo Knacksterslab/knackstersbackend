@@ -107,12 +107,12 @@ async function main() {
   const subscription1 = await prisma.subscription.create({
     data: {
       userId: client1.id,
-      plan: SubscriptionPlan.STARTER,
+      plan: SubscriptionPlan.FLEX_RETAINER,
       status: 'ACTIVE',
       billingInterval: 'MONTHLY',
-      priceAmount: 12500,
+      priceAmount: 700000, // $7,000 in cents
       currency: 'USD',
-      monthlyHours: 200,
+      monthlyHours: 100,
       extraHoursPurchased: 0,
       startDate: periodStart,
       currentPeriodStart: periodStart,
@@ -128,9 +128,9 @@ async function main() {
       plan: SubscriptionPlan.GROWTH,
       status: 'ACTIVE',
       billingInterval: 'MONTHLY',
-      priceAmount: 25000,
+      priceAmount: 2500000, // $25,000 in cents
       currency: 'USD',
-      monthlyHours: 500,
+      monthlyHours: 450,
       extraHoursPurchased: 0,
       startDate: periodStart,
       currentPeriodStart: periodStart,
@@ -149,14 +149,14 @@ async function main() {
       subscriptionId: subscription1.id,
       periodStart,
       periodEnd,
-      allocatedHours: 200,
+      allocatedHours: 100,
       bonusHours: 0,
       extraPurchasedHours: 0,
-      hoursUsed: 142,
+      hoursUsed: 62,
       rolloverHours: 0,
     },
   });
-  console.log(`   ✅ Created hours balance for ${client1.fullName}: 142/200 hrs used`);
+  console.log(`   ✅ Created hours balance for ${client1.fullName}: 62/100 hrs used`);
 
   await prisma.hoursBalance.create({
     data: {
@@ -164,14 +164,14 @@ async function main() {
       subscriptionId: subscription2.id,
       periodStart,
       periodEnd,
-      allocatedHours: 500,
+      allocatedHours: 450,
       bonusHours: 0,
       extraPurchasedHours: 0,
       hoursUsed: 320,
       rolloverHours: 0,
     },
   });
-  console.log(`   ✅ Created hours balance for ${client2.fullName}: 320/500 hrs used\n`);
+  console.log(`   ✅ Created hours balance for ${client2.fullName}: 320/450 hrs used\n`);
 
   // Create Sample Projects
   console.log('📁 Creating sample projects...');

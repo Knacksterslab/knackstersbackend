@@ -99,19 +99,33 @@ export class StripeController {
       const userId = this.getUserId(req, res);
       if (!userId) return;
 
-      const { plan } = req.body;
+      const { plan, trialDomain } = req.body;
       if (!plan) {
         return ApiResponse.badRequest(res, 'Plan is required');
       }
 
       // Validate plan
-      const validPlans = ['STARTER', 'GROWTH', 'ENTERPRISE'];
+      const validPlans = ['TRIAL', 'FLEX_RETAINER', 'PRO_RETAINER', 'GROWTH', 'ENTERPRISE'];
       if (!validPlans.includes(plan)) {
-        return ApiResponse.badRequest(res, 'Invalid plan. Must be STARTER, GROWTH, or ENTERPRISE');
+        return ApiResponse.badRequest(res, 'Invalid plan. Must be one of: TRIAL, FLEX_RETAINER, PRO_RETAINER, GROWTH, or ENTERPRISE');
+      }
+
+      // Trial plan requires a domain selection
+      if (plan === 'TRIAL' && !trialDomain) {
+        return ApiResponse.badRequest(res, 'A domain selection is required for the Trial plan');
+      }
+
+      const { prisma } = await import('../lib/prisma');
+
+      // Trial plan: enforce one per company
+      if (plan === 'TRIAL') {
+        const user = await prisma.user.findUnique({ where: { id: userId }, select: { trialUsed: true } });
+        if (user?.trialUsed) {
+          return ApiResponse.badRequest(res, 'Your company has already used the free Trial plan. Please select a paid plan to continue.');
+        }
       }
 
       // Check if user already has an active subscription
-      const { prisma } = await import('../lib/prisma');
       const existingSubscription = await prisma.subscription.findFirst({
         where: {
           userId,
@@ -125,7 +139,7 @@ export class StripeController {
 
       // Activate subscription using StripeService
       logger.info(`Activating ${plan} subscription for user ${userId}`);
-      const result = await StripeService.activateSubscription(userId, plan);
+      const result = await StripeService.activateSubscription(userId, plan, undefined, trialDomain);
 
       return ApiResponse.success(res, {
         message: 'Subscription activated successfully',

@@ -136,7 +136,7 @@ export class ManagerController {
         return ApiResponse.badRequest(res, `Missing fields: ${validation.missing.join(', ')}`);
       }
 
-      if (!['STARTER', 'GROWTH', 'ENTERPRISE'].includes(plan)) {
+      if (!['TRIAL', 'FLEX_RETAINER', 'PRO_RETAINER', 'GROWTH', 'ENTERPRISE'].includes(plan)) {
         return ApiResponse.badRequest(res, 'Invalid plan');
       }
 

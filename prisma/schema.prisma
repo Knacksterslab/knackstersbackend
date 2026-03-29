@@ -7,8 +7,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ============================================
@@ -29,7 +30,9 @@ enum UserStatus {
 }
 
 enum SubscriptionPlan {
-  STARTER
+  TRIAL
+  FLEX_RETAINER
+  PRO_RETAINER
   GROWTH
   ENTERPRISE
   CUSTOM
@@ -219,6 +222,10 @@ model User {
   onboardingTips       Json?     @default("{}") @map("onboarding_tips")
   isOnboardingComplete Boolean   @default(false) @map("is_onboarding_complete")
   
+  // Trial plan tracking
+  trialUsed            Boolean       @default(false) @map("trial_used")
+  trialDomain          SolutionType? @map("trial_domain")
+
   // Solution selection (for clients)
   selectedSolution     SolutionType? @map("selected_solution")
   selectedSolutionNotes String?    @map("selected_solution_notes") @db.Text

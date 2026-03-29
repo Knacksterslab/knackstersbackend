@@ -25,13 +25,14 @@ export const updateUserSchema = z.object({
 
 // Subscription schemas
 export const createSubscriptionSchema = z.object({
-  plan: z.enum(['STARTER', 'GROWTH', 'ENTERPRISE', 'CUSTOM']),
+  plan: z.enum(['TRIAL', 'FLEX_RETAINER', 'PRO_RETAINER', 'GROWTH', 'ENTERPRISE', 'CUSTOM']),
   billingInterval: z.enum(['MONTHLY', 'YEARLY']).default('MONTHLY'),
   paymentMethodId: z.string().uuid().optional(),
+  trialDomain: z.string().optional(), // Required when plan is TRIAL
 });
 
 export const updateSubscriptionSchema = z.object({
-  plan: z.enum(['STARTER', 'GROWTH', 'ENTERPRISE', 'CUSTOM']).optional(),
+  plan: z.enum(['TRIAL', 'FLEX_RETAINER', 'PRO_RETAINER', 'GROWTH', 'ENTERPRISE', 'CUSTOM']).optional(),
   status: z.enum(['ACTIVE', 'CANCELLED', 'PAUSED']).optional(),
 });
 

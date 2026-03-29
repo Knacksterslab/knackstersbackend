@@ -119,12 +119,13 @@ export class StripeService {
   }
 
   /**
-   * Charge customer and activate subscription (called by manager)
+   * Charge customer and activate subscription (called by manager or client self-serve)
    */
   static async activateSubscription(
     userId: string,
-    plan: 'STARTER' | 'GROWTH' | 'ENTERPRISE',
-    customPriceAmount?: number
+    plan: 'TRIAL' | 'FLEX_RETAINER' | 'PRO_RETAINER' | 'GROWTH' | 'ENTERPRISE',
+    customPriceAmount?: number,
+    trialDomain?: string
   ): Promise<{ subscriptionId: string; invoiceId: string }> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -138,15 +139,6 @@ export class StripeService {
 
     if (!user) {
       throw new Error('User not found');
-    }
-
-    if (!user.stripeCustomerId) {
-      throw new Error('User has no Stripe customer ID');
-    }
-
-    const paymentMethod = user.paymentMethods[0];
-    if (!paymentMethod) {
-      throw new Error('User has no payment method on file');
     }
 
     // Determine pricing based on plan
@@ -168,46 +160,54 @@ export class StripeService {
       monthlyHours = planConfig.monthlyHours;
     }
 
-    // Charge the customer
-    logger.info(`Creating payment intent for ${plan} plan: $${priceAmount / 100} (${priceAmount} cents)`);
-    
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: priceAmount, // Already in cents from config
-      currency: 'usd',
-      customer: user.stripeCustomerId,
-      payment_method: paymentMethod.stripePaymentMethodId!,
-      confirm: true,
-      off_session: true, // Allow charging saved payment method without customer present
-      description: `${plan} Plan - First Month`,
-      metadata: {
-        userId: user.id,
-        plan: plan,
-      },
-    });
-
-    logger.info(`Payment intent created: ${paymentIntent.id}, status: ${paymentIntent.status}`);
-
-    // Handle payment intent status
-    if (paymentIntent.status === 'requires_action' || paymentIntent.status === 'requires_payment_method') {
-      logger.warn(`Payment requires additional action: ${paymentIntent.status}`);
-      throw new Error('Payment requires additional authentication. Please try again or use a different payment method.');
-    }
-
-    if (paymentIntent.status === 'processing') {
-      logger.info('Payment is processing...');
-      // For processing status, we'll still create the subscription but mark it appropriately
-    }
-
-    if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'processing') {
-      logger.error(`Payment failed with status: ${paymentIntent.status}`);
-      throw new Error(`Payment failed with status: ${paymentIntent.status}`);
-    }
-
-    // Create subscription in database
     const today = new Date();
     const nextMonth = new Date(today);
     nextMonth.setMonth(nextMonth.getMonth() + 1);
 
+    let stripePaymentIntentId: string | undefined;
+
+    // Free TRIAL plan — skip Stripe charge entirely
+    if (plan === 'TRIAL' || priceAmount === 0) {
+      logger.info(`Activating free ${plan} plan for user ${userId} — no charge`);
+    } else {
+      // Paid plan — require payment method and charge via Stripe
+      if (!user.stripeCustomerId) {
+        throw new Error('User has no Stripe customer ID');
+      }
+
+      const paymentMethod = user.paymentMethods[0];
+      if (!paymentMethod) {
+        throw new Error('User has no payment method on file');
+      }
+
+      logger.info(`Creating payment intent for ${plan} plan: $${priceAmount / 100} (${priceAmount} cents)`);
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: priceAmount,
+        currency: 'usd',
+        customer: user.stripeCustomerId,
+        payment_method: paymentMethod.stripePaymentMethodId!,
+        confirm: true,
+        off_session: true,
+        description: `${plan} Plan - First Month`,
+        metadata: { userId: user.id, plan },
+      });
+
+      logger.info(`Payment intent created: ${paymentIntent.id}, status: ${paymentIntent.status}`);
+
+      if (paymentIntent.status === 'requires_action' || paymentIntent.status === 'requires_payment_method') {
+        throw new Error('Payment requires additional authentication. Please try again or use a different payment method.');
+      }
+
+      if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'processing') {
+        logger.error(`Payment failed with status: ${paymentIntent.status}`);
+        throw new Error(`Payment failed with status: ${paymentIntent.status}`);
+      }
+
+      stripePaymentIntentId = paymentIntent.id;
+    }
+
+    // Create subscription in database
     const subscription = await prisma.subscription.create({
       data: {
         userId: userId,
@@ -220,19 +220,31 @@ export class StripeService {
         startDate: today,
         currentPeriodStart: today,
         currentPeriodEnd: nextMonth,
-        nextBillingDate: nextMonth,
+        nextBillingDate: plan === 'TRIAL' ? null : nextMonth,
       },
     });
 
+    // Mark trial as used on the user record
+    if (plan === 'TRIAL') {
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          trialUsed: true,
+          trialDomain: trialDomain as any ?? null,
+        },
+      });
+    }
+
     // Create invoice record
     const invoiceNumber = `INV-${Date.now()}-${user.id.slice(0, 8)}`;
+    const paymentMethod = user.paymentMethods[0];
     const invoice = await prisma.invoice.create({
       data: {
         invoiceNumber: invoiceNumber,
         userId: userId,
         subscriptionId: subscription.id,
         transactionType: 'SUBSCRIPTION_RENEWAL',
-        description: `${plan} Plan - First Month`,
+        description: plan === 'TRIAL' ? 'Trial to Hire Plan - Free (50 hrs, 30 days)' : `${plan} Plan - First Month`,
         subtotal: priceAmount,
         tax: 0,
         total: priceAmount,
@@ -240,8 +252,8 @@ export class StripeService {
         invoiceDate: today,
         dueDate: today,
         paidAt: new Date(),
-        paymentMethodId: paymentMethod.id,
-        stripePaymentIntentId: paymentIntent.id,
+        paymentMethodId: paymentMethod?.id ?? null,
+        stripePaymentIntentId: stripePaymentIntentId ?? null,
       },
     });
 
