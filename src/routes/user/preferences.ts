@@ -5,12 +5,12 @@
 
 import { Router } from 'express';
 import UserPreferencesController from '../../controllers/UserPreferencesController';
-import { verifySession } from 'supertokens-node/recipe/session/framework/express';
+import { requireAuth } from '../../middleware/auth';
 
 const router = Router();
 
 // All routes require authentication
-router.use(verifySession());
+router.use(requireAuth);
 
 // Get dismissed tips
 router.get('/tips', UserPreferencesController.getDismissedTips);
