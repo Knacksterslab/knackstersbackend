@@ -53,6 +53,7 @@ import managerTasksRoutes from './routes/manager/tasks';
 import managerTimeLogsRoutes from './routes/manager/timelogs';
 import managerMeetingsRoutes from './routes/manager/meetings';
 import managerTemplatesRoutes from './routes/manager/templates';
+import managerProfileRoutes from './routes/manager/profile';
 
 // Admin routes (dashboard & management)
 import adminDashboardRoutes from './routes/admin/dashboard';
@@ -175,6 +176,7 @@ app.use('/api/talent', talentDashboardRoutes);
 
 // Manager Routes
 app.use('/api/manager', managerDashboardRoutes);
+app.use('/api/manager/profile', managerProfileRoutes);
 app.use('/api/manager/onboarding', managerOnboardingRoutes);
 app.use('/api/manager/tasks', managerTasksRoutes);
 app.use('/api/manager/timelogs', managerTimeLogsRoutes);

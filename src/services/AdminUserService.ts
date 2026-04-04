@@ -287,7 +287,7 @@ export class AdminUserService {
           role: data.role as UserRole,
           status: 'ACTIVE',
           specializations: (data.specializations || []) as SolutionType[],
-          avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.email}`,
+          avatarUrl: null,
         },
       });
 

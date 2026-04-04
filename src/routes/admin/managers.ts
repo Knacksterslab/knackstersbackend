@@ -4,15 +4,31 @@
  */
 
 import { Router, Request, Response } from 'express';
+import multer from 'multer';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import { UserRole } from '../../config/supertokens';
 import { ApiResponse } from '../../utils/response';
 import { logger } from '../../utils/logger';
 import { PrismaClient } from '@prisma/client';
 import ManagerAssignmentService from '../../services/ManagerAssignmentService';
+import { uploadToStorage } from '../../config/supabase-storage';
 
 const router = Router();
 const prisma = new PrismaClient();
+
+// Multer for avatar uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const valid = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (valid.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Use PNG, JPG, or WebP.'));
+    }
+  },
+});
 
 // All routes require authentication and ADMIN role
 router.use(requireAuth, requireRole(UserRole.ADMIN));
@@ -110,6 +126,78 @@ router.post('/bulk-assign', async (_req: Request, res: Response): Promise<any> =
   } catch (error: any) {
     logger.error('Bulk assign failed', error);
     return ApiResponse.error(res, 'Failed to bulk assign managers');
+  }
+});
+
+/**
+ * Upload / replace a manager's avatar (admin override)
+ * POST /api/admin/managers/:managerId/avatar
+ */
+router.post('/:managerId/avatar', upload.single('file'), async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { managerId } = req.params;
+
+    if (!req.file) {
+      return ApiResponse.error(res, 'No file provided', 400);
+    }
+
+    const manager = await prisma.user.findUnique({
+      where: { id: managerId, role: 'MANAGER' },
+    });
+
+    if (!manager) {
+      return ApiResponse.error(res, 'Manager not found', 404);
+    }
+
+    const originalName = req.file.originalname.toLowerCase().replace(/[^a-z0-9.-]/g, '-');
+    const fileName = `${managerId}-${Date.now()}-${originalName}`;
+
+    const publicUrl = await uploadToStorage(
+      'manager-avatars',
+      fileName,
+      req.file.buffer,
+      req.file.mimetype
+    );
+
+    await prisma.user.update({
+      where: { id: managerId },
+      data: { avatarUrl: publicUrl },
+    });
+
+    logger.info(`Admin updated avatar for manager ${managerId}`);
+    return ApiResponse.success(res, { avatarUrl: publicUrl });
+  } catch (error: any) {
+    logger.error('Admin manager avatar upload failed', error);
+    return ApiResponse.error(res, error.message || 'Failed to upload avatar');
+  }
+});
+
+/**
+ * Remove a manager's avatar (admin override)
+ * DELETE /api/admin/managers/:managerId/avatar
+ */
+router.delete('/:managerId/avatar', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { managerId } = req.params;
+
+    const manager = await prisma.user.findUnique({
+      where: { id: managerId, role: 'MANAGER' },
+    });
+
+    if (!manager) {
+      return ApiResponse.error(res, 'Manager not found', 404);
+    }
+
+    await prisma.user.update({
+      where: { id: managerId },
+      data: { avatarUrl: null },
+    });
+
+    logger.info(`Admin removed avatar for manager ${managerId}`);
+    return ApiResponse.success(res, { message: 'Avatar removed' });
+  } catch (error: any) {
+    logger.error('Admin manager avatar removal failed', error);
+    return ApiResponse.error(res, 'Failed to remove avatar');
   }
 });
 
