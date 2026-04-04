@@ -99,7 +99,7 @@ export class StripeController {
       const userId = this.getUserId(req, res);
       if (!userId) return;
 
-      const { plan, trialDomain } = req.body;
+      const { plan } = req.body;
       if (!plan) {
         return ApiResponse.badRequest(res, 'Plan is required');
       }
@@ -110,19 +110,24 @@ export class StripeController {
         return ApiResponse.badRequest(res, 'Invalid plan. Must be one of: TRIAL, FLEX_RETAINER, PRO_RETAINER, GROWTH, or ENTERPRISE');
       }
 
-      // Trial plan requires a domain selection
-      if (plan === 'TRIAL' && !trialDomain) {
-        return ApiResponse.badRequest(res, 'A domain selection is required for the Trial plan');
-      }
-
       const { prisma } = await import('../lib/prisma');
 
-      // Trial plan: enforce one per company
+      // Fetch user fields needed for trial validation
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { trialUsed: true, selectedSolution: true },
+      });
+
+      // Trial plan: use the solution the client chose at registration as the domain
+      let trialDomain: string | undefined;
       if (plan === 'TRIAL') {
-        const user = await prisma.user.findUnique({ where: { id: userId }, select: { trialUsed: true } });
         if (user?.trialUsed) {
           return ApiResponse.badRequest(res, 'Your company has already used the free Trial plan. Please select a paid plan to continue.');
         }
+        if (!user?.selectedSolution) {
+          return ApiResponse.badRequest(res, 'No solution domain found on your account. Please contact support.');
+        }
+        trialDomain = user.selectedSolution;
       }
 
       // Check if user already has an active subscription
