@@ -46,7 +46,9 @@ export class ManagerController {
       const managerId = req.userId;
       if (!managerId) return ApiResponse.unauthorized(res);
 
-      const projects = await ManagerService.getManagerProjects(managerId);
+      const status = req.query.status as string | undefined;
+      const clientId = req.query.clientId as string | undefined;
+      const projects = await ManagerService.getManagerProjects(managerId, status, clientId);
       return ApiResponse.success(res, projects);
     } catch (error: any) {
       logger.error('getProjects failed', error);
@@ -59,7 +61,12 @@ export class ManagerController {
       const managerId = req.userId;
       if (!managerId) return ApiResponse.unauthorized(res);
 
-      const tasks = await ManagerService.getManagerTasks(managerId);
+      const filters = {
+        status: req.query.status as string | undefined,
+        clientId: req.query.clientId as string | undefined,
+        projectId: req.query.projectId as string | undefined,
+      };
+      const tasks = await ManagerService.getManagerTasks(managerId, filters);
       return ApiResponse.success(res, tasks);
     } catch (error: any) {
       logger.error('getTasks failed', error);

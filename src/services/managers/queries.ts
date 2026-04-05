@@ -44,9 +44,10 @@ export class ManagerQueries {
     });
   }
 
-  static async getManagerProjects(managerId: string, status?: string) {
+  static async getManagerProjects(managerId: string, status?: string, clientId?: string) {
     const where: any = { client: { accountManagerId: managerId } };
     if (status) where.status = status;
+    if (clientId) where.clientId = clientId;
 
     return prisma.project.findMany({
       where,

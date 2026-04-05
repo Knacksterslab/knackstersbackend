@@ -50,8 +50,8 @@ export class ManagerService {
     return ManagerQueries.getClientDetails(managerId, clientId);
   }
 
-  async getManagerProjects(managerId: string, status?: string) {
-    return ManagerQueries.getManagerProjects(managerId, status);
+  async getManagerProjects(managerId: string, status?: string, clientId?: string) {
+    return ManagerQueries.getManagerProjects(managerId, status, clientId);
   }
 
   async getManagerTasks(managerId: string, filters?: { status?: string; clientId?: string; projectId?: string }) {
