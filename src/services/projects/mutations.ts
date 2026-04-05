@@ -6,6 +6,7 @@
 import { prisma } from '../../lib/prisma';
 import { ProjectStatus, PriorityLevel } from '@prisma/client';
 import NotificationService from '../NotificationService';
+import { sendClientTaskRequestEmail, sendCSMNewTaskRequestEmail } from '../EmailService';
 
 export class ProjectMutations {
   static async createProject(data: {
@@ -45,22 +46,67 @@ export class ProjectMutations {
       },
     });
 
-    // Notify account manager about new request
+    // Fetch client details (email, name, account manager) for notifications
     const client = await prisma.user.findUnique({
       where: { id: data.clientId },
-      select: { accountManagerId: true, fullName: true }
+      select: {
+        email: true,
+        fullName: true,
+        accountManagerId: true,
+        accountManager: {
+          select: { email: true, fullName: true },
+        },
+      },
     });
 
+    // In-app notification to CSM
     if (client?.accountManagerId) {
       await NotificationService.createNotification({
         userId: client.accountManagerId,
         type: 'INFO',
         title: 'New Task Request',
         message: `${client.fullName || 'Client'} requested: ${data.title}`,
-        actionUrl: `/projects/${project.id}`,
+        actionUrl: `/manager-dashboard/assignments`,
         actionLabel: 'Review Request',
       });
     }
+
+    // Fire emails in parallel — neither should block the response
+    const emailPromises: Promise<void>[] = [];
+
+    if (client?.email) {
+      emailPromises.push(
+        sendClientTaskRequestEmail({
+          clientName: client.fullName || 'Client',
+          clientEmail: client.email,
+          projectNumber,
+          title: data.title,
+          description: data.description || data.title,
+          priority: data.priority || 'MEDIUM',
+          estimatedHours: data.estimatedHours,
+          dueDate: data.dueDate,
+        })
+      );
+    }
+
+    if (client?.accountManager?.email) {
+      emailPromises.push(
+        sendCSMNewTaskRequestEmail({
+          csmName: client.accountManager.fullName || 'Manager',
+          csmEmail: client.accountManager.email,
+          clientName: client.fullName || 'Client',
+          projectNumber,
+          title: data.title,
+          description: data.description || data.title,
+          priority: data.priority || 'MEDIUM',
+          estimatedHours: data.estimatedHours,
+          dueDate: data.dueDate,
+        })
+      );
+    }
+
+    // Non-blocking — don't await, log errors internally inside each function
+    Promise.all(emailPromises).catch(() => {});
 
     return project;
   }
@@ -89,8 +135,12 @@ export class ProjectMutations {
       )
     );
 
-    const project = await prisma.project.findUnique({ where: { id: projectId }, select: { title: true } });
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { title: true, clientId: true },
+    });
 
+    // Notify each assigned talent
     await Promise.all(
       talentIds.map(userId =>
         NotificationService.createNotification({
@@ -103,6 +153,18 @@ export class ProjectMutations {
         })
       )
     );
+
+    // Notify the client their task has been picked up
+    if (project?.clientId) {
+      await NotificationService.createNotification({
+        userId: project.clientId,
+        type: 'SUCCESS',
+        title: 'Task Assigned',
+        message: `An expert has been assigned to your request: "${project.title}". Work is starting soon.`,
+        actionUrl: `/tasks-projects`,
+        actionLabel: 'View Request',
+      });
+    }
 
     return assignees;
   }

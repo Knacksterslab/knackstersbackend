@@ -478,7 +478,179 @@ export async function sendAdminInviteEmail(data: {
   }
 }
 
-// ─── 8. Password Reset (used by SuperTokens emailDelivery) ───────────────────
+// ─── 8. Client: Task Request Confirmation ────────────────────────────────────
+
+export async function sendClientTaskRequestEmail(data: {
+  clientName: string;
+  clientEmail: string;
+  projectNumber: string;
+  title: string;
+  description: string;
+  priority: string;
+  estimatedHours?: number;
+  dueDate?: Date;
+}): Promise<void> {
+  const priorityLabel = data.priority.charAt(0) + data.priority.slice(1).toLowerCase();
+  const dueDateStr = data.dueDate
+    ? new Date(data.dueDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : null;
+
+  const html = layout(`
+    <h1 style="font-size:24px;font-weight:700;color:#111827;margin:0 0 8px;">
+      Request Received ✅
+    </h1>
+    <p style="font-size:15px;color:#6b7280;margin:0 0 24px;">
+      Hi ${data.clientName.split(' ')[0]}, your task request has been submitted successfully.
+    </p>
+
+    <div style="background:#fff7ed;border-radius:8px;padding:20px;margin-bottom:24px;border-left:4px solid #FF9634;">
+      <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">Reference</p>
+      <p style="font-size:18px;font-weight:700;color:#111827;margin:0 0 16px;">${data.projectNumber}</p>
+
+      <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">Task</p>
+      <p style="font-size:15px;font-weight:600;color:#111827;margin:0 0 16px;">${data.title}</p>
+
+      <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">Description</p>
+      <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 16px;">${data.description}</p>
+
+      <div style="display:flex;gap:24px;flex-wrap:wrap;">
+        <div>
+          <p style="font-size:12px;color:#9ca3af;margin:0 0 2px;text-transform:uppercase;letter-spacing:0.05em;">Priority</p>
+          <p style="font-size:14px;font-weight:600;color:#111827;margin:0;">${priorityLabel}</p>
+        </div>
+        ${data.estimatedHours ? `
+        <div>
+          <p style="font-size:12px;color:#9ca3af;margin:0 0 2px;text-transform:uppercase;letter-spacing:0.05em;">Estimated</p>
+          <p style="font-size:14px;font-weight:600;color:#111827;margin:0;">${data.estimatedHours}h</p>
+        </div>` : ''}
+        ${dueDateStr ? `
+        <div>
+          <p style="font-size:12px;color:#9ca3af;margin:0 0 2px;text-transform:uppercase;letter-spacing:0.05em;">Target Date</p>
+          <p style="font-size:14px;font-weight:600;color:#111827;margin:0;">${dueDateStr}</p>
+        </div>` : ''}
+      </div>
+    </div>
+
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px;">
+      <strong>What happens next:</strong>
+    </p>
+    <div style="background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:24px;">
+      <div style="display:flex;align-items:flex-start;margin-bottom:10px;">
+        <span style="font-weight:700;color:#FF9634;min-width:24px;">1.</span>
+        <span style="color:#374151;font-size:14px;">Your Customer Success Manager reviews the scope</span>
+      </div>
+      <div style="display:flex;align-items:flex-start;margin-bottom:10px;">
+        <span style="font-weight:700;color:#FF9634;min-width:24px;">2.</span>
+        <span style="color:#374151;font-size:14px;">The right expert is matched and assigned to your task</span>
+      </div>
+      <div style="display:flex;align-items:flex-start;">
+        <span style="font-weight:700;color:#FF9634;min-width:24px;">3.</span>
+        <span style="color:#374151;font-size:14px;">Work begins — you'll receive an update when it does</span>
+      </div>
+    </div>
+
+    ${primaryButton('View Your Request', `${WEBSITE_URL}/tasks-projects`)}
+
+    ${divider()}
+
+    <p style="font-size:13px;color:#9ca3af;margin:0;">
+      Questions? Reply to this email or reach us at
+      <a href="mailto:connect@knacksters.co" style="color:#ea580c;">connect@knacksters.co</a>
+    </p>
+  `);
+
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: data.clientEmail,
+      subject: `Request received: ${data.projectNumber} — ${data.title.substring(0, 50)}`,
+      html,
+    });
+    logger.info(`Task request confirmation sent to client: ${data.clientEmail}`);
+  } catch (error) {
+    logger.error('Failed to send client task request email', error);
+  }
+}
+
+// ─── 9. CSM: New Task Request Alert ──────────────────────────────────────────
+
+export async function sendCSMNewTaskRequestEmail(data: {
+  csmName: string;
+  csmEmail: string;
+  clientName: string;
+  projectNumber: string;
+  title: string;
+  description: string;
+  priority: string;
+  estimatedHours?: number;
+  dueDate?: Date;
+}): Promise<void> {
+  const priorityLabel = data.priority.charAt(0) + data.priority.slice(1).toLowerCase();
+  const dueDateStr = data.dueDate
+    ? new Date(data.dueDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : 'Not specified';
+
+  const html = layout(`
+    <h1 style="font-size:20px;font-weight:700;color:#111827;margin:0 0 20px;">
+      🆕 New Task Request
+    </h1>
+
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px;">
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;width:35%;">Reference</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${data.projectNumber}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Client</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${data.clientName}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Task</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${data.title}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Priority</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${priorityLabel}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Target Date</td>
+        <td style="padding:10px 0;color:#111827;border-bottom:1px solid #f3f4f6;">${dueDateStr}</td>
+      </tr>
+      ${data.estimatedHours ? `
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;">Estimated Hours</td>
+        <td style="padding:10px 0;color:#111827;">${data.estimatedHours}h</td>
+      </tr>` : ''}
+    </table>
+
+    <p style="font-size:14px;color:#6b7280;margin:0 0 6px;">Description</p>
+    <div style="background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:24px;">
+      <p style="font-size:14px;color:#374151;line-height:1.6;margin:0;">${data.description}</p>
+    </div>
+
+    ${primaryButton('Review in Assignments', `${WEBSITE_URL}/manager-dashboard/assignments`)}
+
+    ${divider()}
+
+    <p style="font-size:13px;color:#9ca3af;margin:0;">
+      This is an automated alert. Log in to assign a talent and get this task started.
+    </p>
+  `);
+
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: data.csmEmail,
+      subject: `New request from ${data.clientName}: ${data.title.substring(0, 50)}`,
+      html,
+    });
+    logger.info(`CSM new task alert sent to: ${data.csmEmail}`);
+  } catch (error) {
+    logger.error('Failed to send CSM new task request email', error);
+  }
+}
+
+// ─── 10. Password Reset (used by SuperTokens emailDelivery) ──────────────────
 
 export async function sendPasswordResetEmail(data: {
   email: string;
