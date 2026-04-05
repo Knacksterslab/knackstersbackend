@@ -16,19 +16,36 @@ export class ProjectMutations {
     estimatedHours?: number;
     dueDate?: Date;
     priority?: PriorityLevel;
+    taskType?: string;
+    isTrialToHire?: boolean;
   }) {
     const projectCount = await prisma.project.count({ where: { clientId: data.clientId } });
     const projectNumber = `PROJ-${Date.now()}-${String(projectCount + 1).padStart(3, '0')}`;
 
+    // Encode category + trial-to-hire into taskType:
+    //   "TRIAL_DEVELOPMENT", "TRIAL_DESIGN", etc. — trial with category
+    //   "TRIAL_HIRE"                               — trial, no category
+    //   "DEVELOPMENT", "DESIGN", etc.              — category only
+    const resolvedTaskType = data.isTrialToHire
+      ? data.taskType
+        ? `TRIAL_${data.taskType}`
+        : 'TRIAL_HIRE'
+      : data.taskType || undefined;
+
     const project = await prisma.project.create({
       data: {
-        ...data,
+        clientId: data.clientId,
+        title: data.title,
+        description: data.description,
+        priority: data.priority,
+        estimatedHours: data.estimatedHours,
+        dueDate: data.dueDate,
         projectNumber,
         status: 'NOT_STARTED',
       },
     });
 
-    // Auto-create initial task for the project (PENDING until manager assigns talent)
+    // Auto-create initial task (PENDING until manager assigns talent)
     const taskCount = await prisma.task.count({ where: { projectId: project.id } });
     const taskNumber = `${projectNumber}-T${String(taskCount + 1).padStart(3, '0')}`;
 
@@ -38,6 +55,7 @@ export class ProjectMutations {
         taskNumber,
         name: data.title,
         description: data.description,
+        taskType: resolvedTaskType,
         status: 'PENDING',
         priority: data.priority || 'MEDIUM',
         estimatedMinutes: data.estimatedHours ? data.estimatedHours * 60 : undefined,
@@ -46,7 +64,7 @@ export class ProjectMutations {
       },
     });
 
-    // Fetch client details (email, name, account manager) for notifications
+    // Fetch client details for notifications and emails
     const client = await prisma.user.findUnique({
       where: { id: data.clientId },
       select: {
@@ -59,19 +77,26 @@ export class ProjectMutations {
       },
     });
 
-    // In-app notification to CSM
+    // In-app notification to CSM — flag trial tasks prominently
     if (client?.accountManagerId) {
+      const notificationTitle = data.isTrialToHire
+        ? '⭐ Trial to Hire — New Task Request'
+        : 'New Task Request';
+      const notificationMessage = data.isTrialToHire
+        ? `${client.fullName || 'Client'} is evaluating for a longer-term engagement: ${data.title}`
+        : `${client.fullName || 'Client'} requested: ${data.title}`;
+
       await NotificationService.createNotification({
         userId: client.accountManagerId,
         type: 'INFO',
-        title: 'New Task Request',
-        message: `${client.fullName || 'Client'} requested: ${data.title}`,
+        title: notificationTitle,
+        message: notificationMessage,
         actionUrl: `/manager-dashboard/assignments`,
         actionLabel: 'Review Request',
       });
     }
 
-    // Fire emails in parallel — neither should block the response
+    // Fire emails non-blocking
     const emailPromises: Promise<void>[] = [];
 
     if (client?.email) {
@@ -85,6 +110,8 @@ export class ProjectMutations {
           priority: data.priority || 'MEDIUM',
           estimatedHours: data.estimatedHours,
           dueDate: data.dueDate,
+          taskType: data.taskType,
+          isTrialToHire: data.isTrialToHire,
         })
       );
     }
@@ -101,11 +128,12 @@ export class ProjectMutations {
           priority: data.priority || 'MEDIUM',
           estimatedHours: data.estimatedHours,
           dueDate: data.dueDate,
+          taskType: data.taskType,
+          isTrialToHire: data.isTrialToHire,
         })
       );
     }
 
-    // Non-blocking — don't await, log errors internally inside each function
     Promise.all(emailPromises).catch(() => {});
 
     return project;

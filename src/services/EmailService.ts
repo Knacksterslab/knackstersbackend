@@ -489,10 +489,15 @@ export async function sendClientTaskRequestEmail(data: {
   priority: string;
   estimatedHours?: number;
   dueDate?: Date;
+  taskType?: string;
+  isTrialToHire?: boolean;
 }): Promise<void> {
   const priorityLabel = data.priority.charAt(0) + data.priority.slice(1).toLowerCase();
   const dueDateStr = data.dueDate
     ? new Date(data.dueDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : null;
+  const categoryLabel = data.taskType
+    ? data.taskType.charAt(0) + data.taskType.slice(1).toLowerCase()
     : null;
 
   const html = layout(`
@@ -503,6 +508,14 @@ export async function sendClientTaskRequestEmail(data: {
       Hi ${data.clientName.split(' ')[0]}, your task request has been submitted successfully.
     </p>
 
+    ${data.isTrialToHire ? `
+    <div style="background:#eff6ff;border-radius:8px;padding:16px;margin-bottom:20px;border-left:4px solid #3b82f6;">
+      <p style="font-size:14px;font-weight:600;color:#1e40af;margin:0 0 4px;">⭐ Trial to Hire Task</p>
+      <p style="font-size:13px;color:#3730a3;margin:0;">
+        Your CSM will ensure the right Knackster is assigned and will follow up about a longer-term subscription arrangement after this task completes. No placement fees apply — longer engagements are managed through your subscription.
+      </p>
+    </div>` : ''}
+
     <div style="background:#fff7ed;border-radius:8px;padding:20px;margin-bottom:24px;border-left:4px solid #FF9634;">
       <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">Reference</p>
       <p style="font-size:18px;font-weight:700;color:#111827;margin:0 0 16px;">${data.projectNumber}</p>
@@ -511,13 +524,18 @@ export async function sendClientTaskRequestEmail(data: {
       <p style="font-size:15px;font-weight:600;color:#111827;margin:0 0 16px;">${data.title}</p>
 
       <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">Description</p>
-      <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 16px;">${data.description}</p>
+      <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 16px;">${data.description.replace(/\n/g, '<br/>')}</p>
 
       <div style="display:flex;gap:24px;flex-wrap:wrap;">
         <div>
           <p style="font-size:12px;color:#9ca3af;margin:0 0 2px;text-transform:uppercase;letter-spacing:0.05em;">Priority</p>
           <p style="font-size:14px;font-weight:600;color:#111827;margin:0;">${priorityLabel}</p>
         </div>
+        ${categoryLabel ? `
+        <div>
+          <p style="font-size:12px;color:#9ca3af;margin:0 0 2px;text-transform:uppercase;letter-spacing:0.05em;">Category</p>
+          <p style="font-size:14px;font-weight:600;color:#111827;margin:0;">${categoryLabel}</p>
+        </div>` : ''}
         ${data.estimatedHours ? `
         <div>
           <p style="font-size:12px;color:#9ca3af;margin:0 0 2px;text-transform:uppercase;letter-spacing:0.05em;">Estimated</p>
@@ -537,11 +555,11 @@ export async function sendClientTaskRequestEmail(data: {
     <div style="background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:24px;">
       <div style="display:flex;align-items:flex-start;margin-bottom:10px;">
         <span style="font-weight:700;color:#FF9634;min-width:24px;">1.</span>
-        <span style="color:#374151;font-size:14px;">Your Customer Success Manager reviews the scope</span>
+        <span style="color:#374151;font-size:14px;">Your Customer Success Manager reviews the scope and confirms details</span>
       </div>
       <div style="display:flex;align-items:flex-start;margin-bottom:10px;">
         <span style="font-weight:700;color:#FF9634;min-width:24px;">2.</span>
-        <span style="color:#374151;font-size:14px;">The right expert is matched and assigned to your task</span>
+        <span style="color:#374151;font-size:14px;">The right Knackster is matched and assigned to your task</span>
       </div>
       <div style="display:flex;align-items:flex-start;">
         <span style="font-weight:700;color:#FF9634;min-width:24px;">3.</span>
@@ -584,13 +602,26 @@ export async function sendCSMNewTaskRequestEmail(data: {
   priority: string;
   estimatedHours?: number;
   dueDate?: Date;
+  taskType?: string;
+  isTrialToHire?: boolean;
 }): Promise<void> {
   const priorityLabel = data.priority.charAt(0) + data.priority.slice(1).toLowerCase();
   const dueDateStr = data.dueDate
     ? new Date(data.dueDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : 'Not specified';
+  const categoryLabel = data.taskType
+    ? data.taskType.charAt(0) + data.taskType.slice(1).toLowerCase()
+    : null;
 
   const html = layout(`
+    ${data.isTrialToHire ? `
+    <div style="background:#eff6ff;border-radius:8px;padding:16px;margin-bottom:20px;border:2px solid #3b82f6;">
+      <p style="font-size:15px;font-weight:700;color:#1e40af;margin:0 0 6px;">⭐ Trial to Hire Task</p>
+      <p style="font-size:13px;color:#1d4ed8;margin:0;">
+        <strong>${data.clientName}</strong> is evaluating this Knackster for a potential longer-term engagement. Please prioritise assigning someone who is available for ongoing subscription-based work. Follow up with the client after completion to discuss next steps.
+      </p>
+    </div>` : ''}
+
     <h1 style="font-size:20px;font-weight:700;color:#111827;margin:0 0 20px;">
       🆕 New Task Request
     </h1>
@@ -608,6 +639,11 @@ export async function sendCSMNewTaskRequestEmail(data: {
         <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Task</td>
         <td style="padding:10px 0;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${data.title}</td>
       </tr>
+      ${categoryLabel ? `
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Category</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${categoryLabel}</td>
+      </tr>` : ''}
       <tr>
         <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Priority</td>
         <td style="padding:10px 0;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${priorityLabel}</td>
@@ -625,7 +661,7 @@ export async function sendCSMNewTaskRequestEmail(data: {
 
     <p style="font-size:14px;color:#6b7280;margin:0 0 6px;">Description</p>
     <div style="background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:24px;">
-      <p style="font-size:14px;color:#374151;line-height:1.6;margin:0;">${data.description}</p>
+      <p style="font-size:14px;color:#374151;line-height:1.6;margin:0;">${data.description.replace(/\n/g, '<br/>')}</p>
     </div>
 
     ${primaryButton('Review in Assignments', `${WEBSITE_URL}/manager-dashboard/assignments`)}
@@ -633,7 +669,7 @@ export async function sendCSMNewTaskRequestEmail(data: {
     ${divider()}
 
     <p style="font-size:13px;color:#9ca3af;margin:0;">
-      This is an automated alert. Log in to assign a talent and get this task started.
+      This is an automated alert. Log in to assign a Knackster and get this task started.
     </p>
   `);
 

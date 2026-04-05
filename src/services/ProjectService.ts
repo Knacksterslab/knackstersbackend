@@ -27,6 +27,8 @@ export class ProjectService {
     estimatedHours?: number;
     dueDate?: Date;
     priority?: PriorityLevel;
+    taskType?: string;
+    isTrialToHire?: boolean;
   }) {
     return ProjectMutations.createProject(data);
   }

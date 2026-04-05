@@ -55,7 +55,7 @@ export class ProjectController {
       const userId = this.getUserId(req, res);
       if (!userId) return;
 
-      const { title, description, estimatedHours, dueDate, priority } = req.body;
+      const { title, description, estimatedHours, dueDate, priority, taskType, isTrialToHire } = req.body;
 
       const validation = Validators.requireFields(req.body, ['title']);
       if (!validation.valid) {
@@ -69,6 +69,8 @@ export class ProjectController {
         estimatedHours,
         dueDate: dueDate ? new Date(dueDate) : undefined,
         priority,
+        taskType: taskType || undefined,
+        isTrialToHire: !!isTrialToHire,
       });
 
       return ApiResponse.success(res, project, 201);
