@@ -65,6 +65,10 @@ export class ManagerService {
   async getAvailableTalent() {
     return ManagerQueries.getAvailableTalent();
   }
+
+  async getTalentProfile(talentId: string) {
+    return ManagerQueries.getTalentProfile(talentId);
+  }
 }
 
 export default new ManagerService();

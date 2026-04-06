@@ -686,7 +686,206 @@ export async function sendCSMNewTaskRequestEmail(data: {
   }
 }
 
-// ─── 10. Password Reset (used by SuperTokens emailDelivery) ──────────────────
+// ─── 10. Manager: New Client Assigned ────────────────────────────────────────
+
+export async function sendManagerNewClientEmail(data: {
+  managerName: string;
+  managerEmail: string;
+  clientName: string;
+  clientEmail: string;
+  selectedSolution?: string;
+}): Promise<void> {
+  const solutionLabel = data.selectedSolution
+    ? data.selectedSolution.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    : 'Not specified';
+
+  const html = layout(`
+    <h1 style="font-size:20px;font-weight:700;color:#111827;margin:0 0 20px;">
+      👋 New Client Assigned to You
+    </h1>
+
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px;">
+      Hi ${data.managerName.split(' ')[0]}, a new client has been assigned to you.
+      They've just completed registration and are expecting an onboarding call.
+    </p>
+
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px;">
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;width:40%;">Client Name</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${data.clientName}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Email</td>
+        <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;">
+          <a href="mailto:${data.clientEmail}" style="color:#7c3aed;">${data.clientEmail}</a>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;">Solution</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;">${solutionLabel}</td>
+      </tr>
+    </table>
+
+    <div style="background:#faf5ff;border-radius:8px;padding:20px;margin-bottom:24px;border-left:4px solid #7c3aed;">
+      <p style="font-size:14px;color:#374151;margin:0;">
+        <strong>Next step:</strong> The client will be booking an onboarding call via the scheduling link.
+        Review their details in your dashboard so you're prepared.
+      </p>
+    </div>
+
+    ${primaryButton('View in Dashboard', `${WEBSITE_URL}/manager-dashboard`)}
+  `);
+
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: data.managerEmail,
+      subject: `New client assigned: ${data.clientName}`,
+      html,
+    });
+    logger.info(`Manager new client email sent to: ${data.managerEmail}`);
+  } catch (error) {
+    logger.error('Failed to send manager new client email', error);
+  }
+}
+
+// ─── 11. Admin: Talent Interview Booked ──────────────────────────────────────
+
+export async function sendAdminTalentInterviewBookedEmail(data: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  primaryExpertise: string;
+  preferredMeetingTime: string;
+  meetingLink?: string | null;
+  profileId: string;
+}): Promise<void> {
+  const meetingRow = data.meetingLink
+    ? `<tr>
+        <td style="padding:10px 0;color:#6b7280;">Meeting Link</td>
+        <td style="padding:10px 0;"><a href="${data.meetingLink}" style="color:#ea580c;">${data.meetingLink}</a></td>
+      </tr>`
+    : '';
+
+  const html = layout(`
+    <h1 style="font-size:20px;font-weight:700;color:#111827;margin:0 0 20px;">
+      📅 Talent Interview Scheduled
+    </h1>
+
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px;">
+      A talent applicant has scheduled their meet &amp; greet interview.
+    </p>
+
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px;">
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;width:40%;">Name</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${data.firstName} ${data.lastName}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Email</td>
+        <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;">
+          <a href="mailto:${data.email}" style="color:#ea580c;">${data.email}</a>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Expertise</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${data.primaryExpertise}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Requested Time</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${data.preferredMeetingTime}</td>
+      </tr>
+      ${meetingRow}
+    </table>
+
+    ${primaryButton('Review Application', `${WEBSITE_URL}/admin-dashboard/talent/${data.profileId}`)}
+  `);
+
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: ADMIN_EMAIL,
+      subject: `Interview Scheduled: ${data.firstName} ${data.lastName} — ${data.primaryExpertise}`,
+      html,
+    });
+    logger.info(`Admin talent interview booked email sent for: ${data.email}`);
+  } catch (error) {
+    logger.error('Failed to send admin talent interview booked email', error);
+  }
+}
+
+// ─── 12. Talent: Interview Booking Confirmed (Cal.com webhook path) ───────────
+
+export async function sendTalentBookingConfirmationEmail(data: {
+  firstName: string;
+  email: string;
+  startTime: Date;
+  videoCallUrl?: string | null;
+}): Promise<void> {
+  const formattedDate = data.startTime.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  const formattedTime = data.startTime.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  });
+
+  const meetingBlock = data.videoCallUrl
+    ? `${primaryButton('Join Interview', data.videoCallUrl)}`
+    : `<p style="font-size:14px;color:#6b7280;margin-top:16px;">A video link will be sent to your email by the organizer.</p>`;
+
+  const html = layout(`
+    <h1 style="font-size:24px;font-weight:700;color:#111827;margin:0 0 8px;">
+      Your Interview is Confirmed! 🎤
+    </h1>
+    <p style="font-size:15px;color:#6b7280;margin:0 0 24px;">
+      Great news, ${data.firstName} — your meet &amp; greet with the Knacksters team is locked in.
+    </p>
+
+    <div style="background:#fff7ed;border-radius:8px;padding:24px;margin-bottom:24px;">
+      <div style="font-size:14px;color:#6b7280;margin-bottom:4px;">Date</div>
+      <div style="font-size:18px;font-weight:700;color:#111827;margin-bottom:16px;">${formattedDate}</div>
+      <div style="font-size:14px;color:#6b7280;margin-bottom:4px;">Time</div>
+      <div style="font-size:18px;font-weight:700;color:#111827;">${formattedTime}</div>
+    </div>
+
+    <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 8px;">
+      What to expect:
+    </p>
+    <ul style="font-size:14px;color:#374151;line-height:1.8;padding-left:20px;margin:0 0 24px;">
+      <li>A casual 30-minute conversation about your background and skills</li>
+      <li>Discussion of project types and client opportunities</li>
+      <li>Your availability and work preferences</li>
+    </ul>
+
+    ${meetingBlock}
+
+    ${divider()}
+
+    <p style="font-size:13px;color:#9ca3af;margin:0;">
+      Need to reschedule? Reply to this email or reach us at
+      <a href="mailto:connect@knacksters.co" style="color:#ea580c;">connect@knacksters.co</a>
+    </p>
+  `);
+
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: data.email,
+      subject: `Your Knacksters Interview: ${formattedDate} at ${formattedTime}`,
+      html,
+    });
+    logger.info(`Talent booking confirmation email sent to: ${data.email}`);
+  } catch (error) {
+    logger.error('Failed to send talent booking confirmation email', error);
+  }
+}
+
+// ─── 13. Password Reset (used by SuperTokens emailDelivery) ──────────────────
 
 export async function sendPasswordResetEmail(data: {
   email: string;

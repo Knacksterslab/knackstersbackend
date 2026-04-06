@@ -68,8 +68,7 @@ export class TalentApplicationController {
         }
       );
 
-      // TODO: Send meeting confirmation email
-      // TODO: Notify team about scheduled meeting
+      // Meeting confirmation + admin alert are handled inside TalentApplicationService.scheduleMeeting
 
       return ApiResponse.success(res, {
         message: 'Meeting scheduled successfully',

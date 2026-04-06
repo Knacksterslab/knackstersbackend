@@ -5,7 +5,7 @@ import { ApiResponse } from '../utils/response';
 import { logger } from '../utils/logger';
 import { SolutionType } from '@prisma/client';
 import ManagerAssignmentService from '../services/ManagerAssignmentService';
-import { sendClientWelcomeEmail, sendAdminNewClientAlert } from '../services/EmailService';
+import { sendClientWelcomeEmail, sendAdminNewClientAlert, sendManagerNewClientEmail } from '../services/EmailService';
 
 const router = Router();
 
@@ -80,8 +80,28 @@ router.patch('/onboarding', requireAuth, async (req: AuthRequest, res: Response)
     // Assign manager if not already assigned
     if (!existingUser?.accountManagerId) {
       ManagerAssignmentService.assignManagerToClient(userId, selectedSolution as SolutionType)
-        .then((managerId) => {
-          if (managerId) logger.info(`Manager ${managerId} assigned after onboarding for ${userId}`);
+        .then(async (managerId) => {
+          if (managerId) {
+            logger.info(`Manager ${managerId} assigned after onboarding for ${userId}`);
+            // Notify the manager by email
+            try {
+              const manager = await prisma.user.findUnique({
+                where: { id: managerId },
+                select: { fullName: true, email: true },
+              });
+              if (manager?.email && existingUser?.email) {
+                sendManagerNewClientEmail({
+                  managerName: manager.fullName || 'there',
+                  managerEmail: manager.email,
+                  clientName: existingUser.fullName || existingUser.email,
+                  clientEmail: existingUser.email,
+                  selectedSolution,
+                }).catch(err => logger.error('Manager new client email failed (onboarding)', err));
+              }
+            } catch (err) {
+              logger.error('Failed to fetch manager for email (onboarding)', err);
+            }
+          }
         })
         .catch((err) => logger.error('Manager assignment failed during onboarding', err));
     }

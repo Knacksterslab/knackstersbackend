@@ -22,5 +22,6 @@ router.get('/projects', ManagerController.getProjects as any);
 router.get('/tasks', ManagerController.getTasks as any);
 router.get('/stats', ManagerController.getStats as any);
 router.get('/talent', ManagerController.getAvailableTalent as any);
+router.get('/talent/:talentId', ManagerController.getTalentProfile as any);
 
 export default router;

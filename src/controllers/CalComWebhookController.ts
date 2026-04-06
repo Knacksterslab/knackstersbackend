@@ -9,7 +9,7 @@ import { ApiResponse } from '../utils/response';
 import { logger } from '../utils/logger';
 import { MeetingType } from '@prisma/client';
 import NotificationService from '../services/NotificationService';
-import { sendClientBookingConfirmationEmail } from '../services/EmailService';
+import { sendClientBookingConfirmationEmail, sendTalentBookingConfirmationEmail, sendAdminTalentInterviewBookedEmail } from '../services/EmailService';
 import crypto from 'crypto';
 
 interface CalComWebhookPayload {
@@ -272,13 +272,62 @@ export class CalComWebhookController {
           startTime: payload.startTime,
         });
 
+        const startTime = new Date(payload.startTime);
+
+        // Send branded confirmation email to talent (fire-and-forget)
+        sendTalentBookingConfirmationEmail({
+          firstName: talentProfile.firstName,
+          email: talentProfile.email,
+          startTime,
+          videoCallUrl: payload.location || null,
+        }).catch(err => logger.error('Talent booking confirmation email failed', err));
+
+        // Send admin email alert (fire-and-forget)
+        sendAdminTalentInterviewBookedEmail({
+          firstName: talentProfile.firstName,
+          lastName: talentProfile.lastName,
+          email: talentProfile.email,
+          primaryExpertise: talentProfile.primaryExpertise,
+          preferredMeetingTime: startTime.toLocaleString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZoneName: 'short',
+          }),
+          meetingLink: payload.location || null,
+          profileId: talentProfile.id,
+        }).catch(err => logger.error('Admin talent interview booked email failed (webhook)', err));
+
+        // Notify all admins in-app
+        try {
+          const admins = await prisma.user.findMany({
+            where: { role: 'ADMIN' },
+            select: { id: true },
+          });
+          for (const admin of admins) {
+            await NotificationService.createNotification({
+              userId: admin.id,
+              type: 'SUCCESS',
+              title: 'Talent Interview Booked',
+              message: `${talentProfile.firstName} ${talentProfile.lastName} (${talentProfile.primaryExpertise}) confirmed their interview via Cal.com`,
+              actionUrl: `/admin-dashboard/talent/${talentProfile.id}`,
+              actionLabel: 'View Profile',
+            });
+          }
+          logger.info(`Admin in-app notifications sent for talent booking: ${talentProfile.email}`);
+        } catch (notifError) {
+          logger.error('Failed to create admin notifications for talent booking', notifError);
+        }
+
         // Log activity
         try {
           await prisma.activityLog.create({
             data: {
               userId: talentProfile.id,
               activityType: 'MEETING_SCHEDULED',
-              description: `Interview scheduled for ${new Date(payload.startTime).toLocaleString()}`,
+              description: `Interview scheduled for ${startTime.toLocaleString()}`,
               metadata: {
                 bookingId: payload.uid,
                 meetingLink: payload.location,

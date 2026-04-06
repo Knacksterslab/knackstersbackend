@@ -100,6 +100,22 @@ export class ManagerController {
     }
   }
 
+  static async getTalentProfile(req: AuthRequest, res: Response) {
+    try {
+      const managerId = req.userId;
+      if (!managerId) return ApiResponse.unauthorized(res);
+
+      const { talentId } = req.params;
+      const profile = await ManagerService.getTalentProfile(talentId);
+
+      if (!profile) return ApiResponse.notFound(res, 'Talent');
+      return ApiResponse.success(res, profile);
+    } catch (error: any) {
+      logger.error('getTalentProfile failed', error);
+      return ApiResponse.error(res, error.message);
+    }
+  }
+
   static async getPendingOnboardingClients(req: AuthRequest, res: Response) {
     try {
       const managerId = req.userId;

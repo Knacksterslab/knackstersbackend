@@ -20,7 +20,10 @@ export class ProjectMutations {
     isTrialToHire?: boolean;
   }) {
     const projectCount = await prisma.project.count({ where: { clientId: data.clientId } });
-    const projectNumber = `PROJ-${Date.now()}-${String(projectCount + 1).padStart(3, '0')}`;
+    const now = new Date();
+    const yy = String(now.getFullYear()).slice(-2);
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const projectNumber = `KN-${yy}${mm}-${String(projectCount + 1).padStart(3, '0')}`;
 
     // Encode category + trial-to-hire into taskType:
     //   "TRIAL_DEVELOPMENT", "TRIAL_DESIGN", etc. — trial with category
@@ -47,7 +50,7 @@ export class ProjectMutations {
 
     // Auto-create initial task (PENDING until manager assigns talent)
     const taskCount = await prisma.task.count({ where: { projectId: project.id } });
-    const taskNumber = `${projectNumber}-T${String(taskCount + 1).padStart(3, '0')}`;
+    const taskNumber = `${projectNumber}-T${String(taskCount + 1).padStart(2, '0')}`;
 
     await prisma.task.create({
       data: {

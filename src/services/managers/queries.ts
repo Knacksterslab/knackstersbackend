@@ -5,6 +5,7 @@
 
 import { prisma } from '../../lib/prisma';
 import { PrismaHelpers } from '../../utils/prisma-helpers';
+import { startOfMonth, endOfMonth } from 'date-fns';
 
 export class ManagerQueries {
   static async getManagerStats(managerId: string) {
@@ -93,6 +94,86 @@ export class ManagerQueries {
       },
       orderBy: { fullName: 'asc' },
     });
+  }
+
+  static async getTalentProfile(talentId: string) {
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+
+    const [profile, activeTasks, completedAllTime, completedThisMonth, timeAggregate, recentlyCompleted] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: talentId, role: 'TALENT', status: 'ACTIVE' },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          avatarUrl: true,
+          createdAt: true,
+          bio: true,
+          skills: true,
+          timezone: true,
+          weeklyCapacityHours: true,
+          portfolioUrl: true,
+          linkedinUrl: true,
+        },
+      }),
+      prisma.task.findMany({
+        where: { assignedToId: talentId, status: { in: ['ACTIVE', 'IN_REVIEW'] } },
+        select: {
+          id: true,
+          name: true,
+          taskNumber: true,
+          taskType: true,
+          status: true,
+          dueDate: true,
+          estimatedMinutes: true,
+          project: {
+            select: {
+              title: true,
+              client: { select: { fullName: true, companyName: true } },
+            },
+          },
+        },
+        orderBy: { dueDate: 'asc' },
+      }),
+      prisma.task.count({ where: { assignedToId: talentId, status: 'COMPLETED' } }),
+      prisma.task.count({
+        where: { assignedToId: talentId, status: 'COMPLETED', completedAt: { gte: monthStart, lte: monthEnd } },
+      }),
+      prisma.timeLog.aggregate({
+        where: { userId: talentId, startTime: { gte: monthStart, lte: monthEnd } },
+        _sum: { durationMinutes: true },
+      }),
+      prisma.task.findMany({
+        where: { assignedToId: talentId, status: 'COMPLETED' },
+        select: {
+          id: true,
+          name: true,
+          taskNumber: true,
+          completedAt: true,
+          project: { select: { title: true } },
+        },
+        orderBy: { completedAt: 'desc' },
+        take: 5,
+      }),
+    ]);
+
+    if (!profile) return null;
+
+    const totalMinutesThisMonth = Number(timeAggregate._sum.durationMinutes ?? 0);
+
+    return {
+      profile,
+      stats: {
+        activeTasks: activeTasks.length,
+        completedAllTime,
+        completedThisMonth,
+        hoursThisMonth: parseFloat((totalMinutesThisMonth / 60).toFixed(1)),
+      },
+      activeTasks,
+      recentlyCompleted,
+    };
   }
 
   static async getClientDetails(managerId: string, clientId: string) {

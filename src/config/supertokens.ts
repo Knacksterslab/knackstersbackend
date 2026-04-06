@@ -6,7 +6,7 @@ import Dashboard from 'supertokens-node/recipe/dashboard';
 import { PrismaClient, UserRole as PrismaUserRole, SolutionType } from '@prisma/client';
 import { logger } from '../utils/logger';
 import ManagerAssignmentService from '../services/ManagerAssignmentService';
-import { sendClientWelcomeEmail, sendAdminNewClientAlert, sendPasswordResetEmail } from '../services/EmailService';
+import { sendClientWelcomeEmail, sendAdminNewClientAlert, sendManagerNewClientEmail, sendPasswordResetEmail } from '../services/EmailService';
 
 const prisma = new PrismaClient();
 
@@ -149,6 +149,21 @@ export function initSupertokens() {
                         
                         if (managerId) {
                           logger.info(`Manager ${managerId} auto-assigned to client ${newUser.id}`);
+                          // Notify the manager by email
+                          prisma.user.findUnique({
+                            where: { id: managerId },
+                            select: { fullName: true, email: true },
+                          }).then((manager) => {
+                            if (manager?.email) {
+                              sendManagerNewClientEmail({
+                                managerName: manager.fullName || 'there',
+                                managerEmail: manager.email,
+                                clientName: fullName,
+                                clientEmail: email,
+                                selectedSolution,
+                              }).catch(err => logger.error('Manager new client email failed', err));
+                            }
+                          }).catch(err => logger.error('Failed to fetch manager for email', err));
                         } else {
                           logger.warn(`No manager available for client ${newUser.id}`);
                         }

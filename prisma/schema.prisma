@@ -231,7 +231,15 @@ model User {
   selectedSolutionNotes String?    @map("selected_solution_notes") @db.Text
   
   // Manager specializations (for managers)
-  specializations      SolutionType[] @default([]) 
+  specializations      SolutionType[] @default([])
+
+  // Talent profile enrichment
+  bio                  String?    @db.Text
+  skills               String[]   @default([])
+  timezone             String?
+  weeklyCapacityHours  Int?       @map("weekly_capacity_hours")
+  portfolioUrl         String?    @map("portfolio_url")
+  linkedinUrl          String?    @map("linkedin_url")
   
   // Account manager relationship (self-referencing)
   accountManagerId  String?    @map("account_manager_id")

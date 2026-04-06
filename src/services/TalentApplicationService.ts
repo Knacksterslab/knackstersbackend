@@ -8,7 +8,7 @@ import { logger } from '../utils/logger';
 import { EmploymentStatus, WorkType } from '@prisma/client';
 import GoogleCalendarService from './GoogleCalendarService';
 import NotificationService from './NotificationService';
-import { sendTalentInterviewScheduledEmail } from './EmailService';
+import { sendTalentInterviewScheduledEmail, sendAdminTalentInterviewBookedEmail } from './EmailService';
 
 export class TalentApplicationService {
   /**
@@ -132,6 +132,17 @@ export class TalentApplicationService {
       preferredMeetingTime: data.preferredMeetingTime,
       meetingLink: profile.meetingLink,
     }).catch(err => logger.error('Talent interview email failed', err));
+
+    // Send admin email alert about interview being scheduled
+    sendAdminTalentInterviewBookedEmail({
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      email: profile.email,
+      primaryExpertise: profile.primaryExpertise,
+      preferredMeetingTime: data.preferredMeetingTime,
+      meetingLink: profile.meetingLink,
+      profileId: profile.id,
+    }).catch(err => logger.error('Admin talent interview booked email failed', err));
     
     // Notify all admins about interview scheduled
     try {

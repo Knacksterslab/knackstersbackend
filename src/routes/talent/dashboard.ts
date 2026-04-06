@@ -17,5 +17,7 @@ router.use(requireRole(UserRole.TALENT)); // Strict tenant isolation
 router.get('/dashboard', (req, res) => TalentController.getDashboard(req as any, res));
 router.get('/earnings', (req, res) => TalentController.getEarnings(req as any, res));
 router.get('/tasks/history', (req, res) => TalentController.getTaskHistory(req as any, res));
+router.get('/profile', (req, res) => TalentController.getProfile(req as any, res));
+router.patch('/profile', (req, res) => TalentController.updateProfile(req as any, res));
 
 export default router;
