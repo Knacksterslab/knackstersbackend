@@ -1,5 +1,8 @@
 import prisma from '../lib/prisma';
 import { TicketStatus } from '@prisma/client';
+import { sendAdminNewSupportTicketEmail } from './EmailService';
+import NotificationService from './NotificationService';
+import { logger } from '../utils/logger';
 
 interface CreateTicketData {
   userId: string;
@@ -48,6 +51,36 @@ class SupportTicketService {
         },
       },
     });
+
+    // Fire-and-forget: email admin + notify all admins in-app
+    try {
+      sendAdminNewSupportTicketEmail({
+        ticketNumber,
+        clientName: ticket.user.fullName || ticket.user.email,
+        clientEmail: ticket.user.email,
+        subject: data.subject,
+        category: data.category,
+        priority: data.priority || 'NORMAL',
+        description: data.description,
+      }).catch(err => logger.error('Admin support ticket email failed', err));
+
+      prisma.user.findMany({ where: { role: 'ADMIN', status: 'ACTIVE' } })
+        .then(admins =>
+          Promise.all(admins.map(admin =>
+            NotificationService.createNotification({
+              userId: admin.id,
+              type: 'WARNING',
+              title: `New Support Ticket: ${ticketNumber}`,
+              message: `${ticket.user.fullName || ticket.user.email} submitted: "${data.subject}"`,
+              actionUrl: `/admin-dashboard/support/${ticket.id}`,
+              actionLabel: 'View Ticket',
+            })
+          ))
+        )
+        .catch(err => logger.error('Admin support ticket notification failed', err));
+    } catch (err) {
+      logger.error('Post-ticket notification setup failed', err);
+    }
 
     return ticket;
   }

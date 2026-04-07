@@ -10,6 +10,7 @@ import SubscriptionService from '../services/SubscriptionService';
 import { PaymentStatus } from '@prisma/client';
 import { ApiResponse } from '../utils/response';
 import { logger } from '../utils/logger';
+import { PLAN_CONFIG } from '../services/subscriptions/config';
 
 export class BillingController {
   private static getUserId(req: AuthRequest, res: Response): string | null {
@@ -117,11 +118,24 @@ export class BillingController {
       const { plan } = req.body;
       if (!plan) return ApiResponse.badRequest(res, 'Plan is required');
 
-      const subscription = await SubscriptionService.updateSubscription(userId, { plan });
+      const planConfig = PLAN_CONFIG[plan as keyof typeof PLAN_CONFIG];
+      if (!planConfig) return ApiResponse.badRequest(res, 'Invalid plan');
+      if (plan === 'ENTERPRISE' || plan === 'CUSTOM') {
+        return ApiResponse.badRequest(res, 'Enterprise and Custom plans require contacting sales');
+      }
+      if (plan === 'TRIAL') {
+        return ApiResponse.badRequest(res, 'Cannot switch back to Trial plan');
+      }
+
+      const subscription = await SubscriptionService.updateSubscription(userId, {
+        plan: plan as any,
+        priceAmount: planConfig.monthlyPrice,
+        monthlyHours: planConfig.monthlyHours,
+      });
       return ApiResponse.success(res, subscription);
     } catch (error: any) {
       logger.error('upgradeSubscription failed', error);
-      return ApiResponse.error(res, error.message || 'Failed to upgrade subscription');
+      return ApiResponse.error(res, error.message || 'Failed to change plan');
     }
   }
 

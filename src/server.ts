@@ -26,6 +26,7 @@ import uploadRoutes from './routes/admin/upload';
 import pagesRoutes from './routes/admin/pages';
 import adminNotificationRoutes from './routes/admin/notifications';
 import adminTalentRoutes from './routes/admin/talent';
+import adminSupportRoutes from './routes/admin/support';
 
 // Client routes
 import dashboardRoutes from './routes/client/dashboard';
@@ -154,6 +155,7 @@ app.use('/api/admin/upload', uploadRoutes);
 app.use('/api/admin/managers', managersRoutes);
 app.use('/api/admin/notifications', adminNotificationRoutes);
 app.use('/api/admin/talent', adminTalentRoutes);
+app.use('/api/admin/support', adminSupportRoutes);
 
 // Client Routes
 app.use('/api/client/dashboard', dashboardRoutes);

@@ -199,8 +199,11 @@ export class ManagerController {
       const managerId = req.userId;
       if (!managerId) return ApiResponse.unauthorized(res);
 
+      const clientId = req.params.clientId ?? req.params.userId;
+      if (!clientId) return ApiResponse.badRequest(res, 'Client ID is required');
+
       const client = await prisma.user.findUnique({
-        where: { id: req.params.userId },
+        where: { id: clientId },
         include: {
           paymentMethods: { where: { isDefault: true }, select: { cardBrand: true, cardLastFour: true, cardExpMonth: true, cardExpYear: true } },
           subscriptions: { where: { status: 'ACTIVE' }, orderBy: { createdAt: 'desc' }, take: 1 },

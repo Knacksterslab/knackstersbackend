@@ -925,3 +925,360 @@ export async function sendPasswordResetEmail(data: {
     throw error; // Re-throw so SuperTokens knows delivery failed
   }
 }
+
+// ─── 14. Talent: Task Assigned ────────────────────────────────────────────────
+
+export async function sendTalentTaskAssignedEmail(data: {
+  talentName: string;
+  talentEmail: string;
+  taskName: string;
+  taskNumber: string;
+  projectTitle: string;
+  clientName: string;
+  dueDate?: Date | null;
+  estimatedMinutes?: number | null;
+}): Promise<void> {
+  const dueDateStr = data.dueDate
+    ? new Date(data.dueDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : null;
+  const estimatedStr = data.estimatedMinutes
+    ? data.estimatedMinutes >= 60
+      ? `${Math.floor(data.estimatedMinutes / 60)}h ${data.estimatedMinutes % 60 > 0 ? `${data.estimatedMinutes % 60}m` : ''}`.trim()
+      : `${data.estimatedMinutes}m`
+    : null;
+
+  const html = layout(`
+    <h1 style="font-size:24px;font-weight:700;color:#111827;margin:0 0 8px;">
+      New Task Assigned 🎯
+    </h1>
+    <p style="font-size:15px;color:#6b7280;margin:0 0 24px;">
+      Hi ${data.talentName.split(' ')[0]}, you have a new task ready to begin.
+    </p>
+
+    <div style="background:#fff7ed;border-radius:8px;padding:20px;margin-bottom:24px;border-left:4px solid #FF9634;">
+      <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">Task</p>
+      <p style="font-size:17px;font-weight:700;color:#111827;margin:0 0 12px;">${data.taskName}</p>
+
+      <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">Reference</p>
+      <p style="font-size:14px;font-weight:600;color:#374151;margin:0 0 12px;font-family:monospace;">${data.taskNumber}</p>
+
+      <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">Project</p>
+      <p style="font-size:14px;color:#374151;margin:0 0 12px;">${data.projectTitle}</p>
+
+      <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">Client</p>
+      <p style="font-size:14px;color:#374151;margin:0 0 12px;">${data.clientName}</p>
+
+      ${dueDateStr || estimatedStr ? `
+      <div style="display:flex;gap:24px;flex-wrap:wrap;">
+        ${dueDateStr ? `
+        <div>
+          <p style="font-size:12px;color:#9ca3af;margin:0 0 2px;text-transform:uppercase;letter-spacing:0.05em;">Due Date</p>
+          <p style="font-size:14px;font-weight:600;color:#111827;margin:0;">${dueDateStr}</p>
+        </div>` : ''}
+        ${estimatedStr ? `
+        <div>
+          <p style="font-size:12px;color:#9ca3af;margin:0 0 2px;text-transform:uppercase;letter-spacing:0.05em;">Estimated</p>
+          <p style="font-size:14px;font-weight:600;color:#111827;margin:0;">${estimatedStr}</p>
+        </div>` : ''}
+      </div>` : ''}
+    </div>
+
+    <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 8px;">
+      Log your time as you work and update the task status in your dashboard.
+    </p>
+
+    ${primaryButton('View Your Tasks', `${WEBSITE_URL}/talent-dashboard/tasks`)}
+
+    ${divider()}
+
+    <p style="font-size:13px;color:#9ca3af;margin:0;">
+      Questions? Contact your Customer Success Manager or reach us at
+      <a href="mailto:connect@knacksters.co" style="color:#ea580c;">connect@knacksters.co</a>
+    </p>
+  `);
+
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: data.talentEmail,
+      subject: `New task: ${data.taskName.substring(0, 60)}`,
+      html,
+    });
+    logger.info(`Task assigned email sent to talent: ${data.talentEmail}`);
+  } catch (error) {
+    logger.error('Failed to send talent task assigned email', error);
+  }
+}
+
+// ─── 15. Client: Work Started ─────────────────────────────────────────────────
+
+export async function sendClientTaskStartedEmail(data: {
+  clientName: string;
+  clientEmail: string;
+  taskName: string;
+  projectNumber: string;
+  talentName: string;
+}): Promise<void> {
+  const html = layout(`
+    <h1 style="font-size:24px;font-weight:700;color:#111827;margin:0 0 8px;">
+      Work Has Started 🚀
+    </h1>
+    <p style="font-size:15px;color:#6b7280;margin:0 0 24px;">
+      Hi ${data.clientName.split(' ')[0]}, a Knackster has started working on your request.
+    </p>
+
+    <div style="background:#eff6ff;border-radius:8px;padding:20px;margin-bottom:24px;border-left:4px solid #3b82f6;">
+      <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">Task</p>
+      <p style="font-size:17px;font-weight:700;color:#111827;margin:0 0 12px;">${data.taskName}</p>
+
+      <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">Reference</p>
+      <p style="font-size:14px;font-weight:600;color:#374151;margin:0 0 12px;font-family:monospace;">${data.projectNumber}</p>
+
+      <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">Assigned Knackster</p>
+      <p style="font-size:14px;font-weight:600;color:#374151;margin:0;">${data.talentName}</p>
+    </div>
+
+    <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 24px;">
+      You can track progress and view logged hours in your dashboard. Your Customer Success Manager will keep you updated throughout.
+    </p>
+
+    ${primaryButton('Track Your Request', `${WEBSITE_URL}/tasks-projects`)}
+
+    ${divider()}
+
+    <p style="font-size:13px;color:#9ca3af;margin:0;">
+      Questions? Reply to this email or reach us at
+      <a href="mailto:connect@knacksters.co" style="color:#ea580c;">connect@knacksters.co</a>
+    </p>
+  `);
+
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: data.clientEmail,
+      subject: `Work started: ${data.taskName.substring(0, 60)} — ${data.projectNumber}`,
+      html,
+    });
+    logger.info(`Task started email sent to client: ${data.clientEmail}`);
+  } catch (error) {
+    logger.error('Failed to send client task started email', error);
+  }
+}
+
+// ─── 16. Client: Task Completed ───────────────────────────────────────────────
+
+export async function sendClientTaskCompletedEmail(data: {
+  clientName: string;
+  clientEmail: string;
+  taskName: string;
+  projectNumber: string;
+  talentName: string;
+  loggedMinutes?: number | null;
+}): Promise<void> {
+  const loggedStr = data.loggedMinutes
+    ? data.loggedMinutes >= 60
+      ? `${Math.floor(data.loggedMinutes / 60)}h ${data.loggedMinutes % 60 > 0 ? `${data.loggedMinutes % 60}m` : ''}`.trim()
+      : `${data.loggedMinutes}m`
+    : null;
+
+  const html = layout(`
+    <h1 style="font-size:24px;font-weight:700;color:#111827;margin:0 0 8px;">
+      Task Completed ✅
+    </h1>
+    <p style="font-size:15px;color:#6b7280;margin:0 0 24px;">
+      Hi ${data.clientName.split(' ')[0]}, your task has been marked complete.
+    </p>
+
+    <div style="background:#f0fdf4;border-radius:8px;padding:20px;margin-bottom:24px;border-left:4px solid #22c55e;">
+      <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">Task</p>
+      <p style="font-size:17px;font-weight:700;color:#111827;margin:0 0 12px;">${data.taskName}</p>
+
+      <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">Reference</p>
+      <p style="font-size:14px;font-weight:600;color:#374151;margin:0 0 12px;font-family:monospace;">${data.projectNumber}</p>
+
+      <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">Completed by</p>
+      <p style="font-size:14px;font-weight:600;color:#374151;margin:0 0 12px;">${data.talentName}</p>
+
+      ${loggedStr ? `
+      <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">Time Logged</p>
+      <p style="font-size:14px;font-weight:600;color:#374151;margin:0;">${loggedStr}</p>` : ''}
+    </div>
+
+    <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 8px;">
+      Please review the deliverables. If everything looks good, no action is needed. If you have any follow-up work, submit a new request from your dashboard.
+    </p>
+
+    ${primaryButton('View Completed Request', `${WEBSITE_URL}/tasks-projects`)}
+
+    ${divider()}
+
+    <p style="font-size:13px;color:#9ca3af;margin:0;">
+      Questions about the work? Reply to this email or contact your Customer Success Manager at
+      <a href="mailto:connect@knacksters.co" style="color:#ea580c;">connect@knacksters.co</a>
+    </p>
+  `);
+
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: data.clientEmail,
+      subject: `Task completed: ${data.taskName.substring(0, 60)} — ${data.projectNumber}`,
+      html,
+    });
+    logger.info(`Task completed email sent to client: ${data.clientEmail}`);
+  } catch (error) {
+    logger.error('Failed to send client task completed email', error);
+  }
+}
+
+// ─── 17. CSM: Task Completed Alert ───────────────────────────────────────────
+
+export async function sendCSMTaskCompletedEmail(data: {
+  csmName: string;
+  csmEmail: string;
+  clientName: string;
+  taskName: string;
+  projectNumber: string;
+  talentName: string;
+  loggedMinutes?: number | null;
+}): Promise<void> {
+  const loggedStr = data.loggedMinutes
+    ? data.loggedMinutes >= 60
+      ? `${Math.floor(data.loggedMinutes / 60)}h ${data.loggedMinutes % 60 > 0 ? `${data.loggedMinutes % 60}m` : ''}`.trim()
+      : `${data.loggedMinutes}m`
+    : null;
+
+  const html = layout(`
+    <h1 style="font-size:20px;font-weight:700;color:#111827;margin:0 0 20px;">
+      ✅ Task Completed
+    </h1>
+
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px;">
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;width:35%;">Reference</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;font-family:monospace;">${data.projectNumber}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Client</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${data.clientName}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Task</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${data.taskName}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Completed by</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${data.talentName}</td>
+      </tr>
+      ${loggedStr ? `
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;">Time Logged</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;">${loggedStr}</td>
+      </tr>` : ''}
+    </table>
+
+    <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 24px;">
+      The client has been notified. Follow up if any review or next steps are required.
+    </p>
+
+    ${primaryButton('View in Assignments', `${WEBSITE_URL}/manager-dashboard/assignments`)}
+
+    ${divider()}
+
+    <p style="font-size:13px;color:#9ca3af;margin:0;">
+      This is an automated alert from Knacksters.
+    </p>
+  `);
+
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: data.csmEmail,
+      subject: `Task completed — ${data.clientName}: ${data.taskName.substring(0, 50)}`,
+      html,
+    });
+    logger.info(`Task completed alert sent to CSM: ${data.csmEmail}`);
+  } catch (error) {
+    logger.error('Failed to send CSM task completed email', error);
+  }
+}
+
+// ─── 18. Admin: New Support Ticket ───────────────────────────────────────────
+
+export async function sendAdminNewSupportTicketEmail(data: {
+  ticketNumber: string;
+  clientName: string;
+  clientEmail: string;
+  subject: string;
+  category?: string;
+  priority: string;
+  description: string;
+}): Promise<void> {
+  const priorityColors: Record<string, string> = {
+    URGENT: '#dc2626',
+    HIGH: '#ea580c',
+    NORMAL: '#2563eb',
+    LOW: '#6b7280',
+  };
+  const priorityColor = priorityColors[data.priority] || '#6b7280';
+
+  const html = layout(`
+    <h1 style="font-size:20px;font-weight:700;color:#111827;margin:0 0 20px;">
+      🎫 New Support Ticket
+    </h1>
+
+    <div style="background:#fff7ed;border-radius:8px;padding:16px;margin-bottom:20px;border-left:4px solid #FF9634;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <p style="font-size:18px;font-weight:700;color:#111827;margin:0;font-family:monospace;">${data.ticketNumber}</p>
+        <span style="display:inline-block;padding:3px 10px;background:${priorityColor};color:#fff;border-radius:20px;font-size:12px;font-weight:600;">
+          ${data.priority}
+        </span>
+      </div>
+    </div>
+
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px;">
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;width:35%;">Client</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${data.clientName}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Email</td>
+        <td style="padding:10px 0;color:#111827;border-bottom:1px solid #f3f4f6;">
+          <a href="mailto:${data.clientEmail}" style="color:#ea580c;">${data.clientEmail}</a>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Subject</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${data.subject}</td>
+      </tr>
+      ${data.category ? `
+      <tr>
+        <td style="padding:10px 0;color:#6b7280;">Category</td>
+        <td style="padding:10px 0;color:#111827;font-weight:600;">${data.category}</td>
+      </tr>` : ''}
+    </table>
+
+    <p style="font-size:14px;color:#6b7280;margin:0 0 6px;">Description</p>
+    <div style="background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:24px;">
+      <p style="font-size:14px;color:#374151;line-height:1.6;margin:0;">${data.description.replace(/\n/g, '<br/>')}</p>
+    </div>
+
+    ${divider()}
+
+    <p style="font-size:13px;color:#9ca3af;margin:0;">
+      This is an automated alert. Log in to the admin dashboard to view and respond to this ticket.
+    </p>
+  `);
+
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: ADMIN_EMAIL,
+      subject: `[${data.priority}] New ticket ${data.ticketNumber}: ${data.subject.substring(0, 60)}`,
+      html,
+    });
+    logger.info(`Admin new support ticket email sent for: ${data.ticketNumber}`);
+  } catch (error) {
+    logger.error('Failed to send admin new support ticket email', error);
+  }
+}
