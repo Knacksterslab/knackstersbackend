@@ -99,9 +99,13 @@ export function initSupertokens() {
 
                 if (response.status === 'OK') {
                   try {
-                    // Create user in Prisma
-                    const newUser = await prisma.user.create({
-                      data: {
+                    // Upsert user in Prisma keyed by email.
+                    // If the email already exists (e.g. SuperTokens DB was reset/cleared but
+                    // Prisma still has the old record), we re-link it to the new SuperTokens ID
+                    // so the user can log in and retain all their existing data.
+                    const newUser = await prisma.user.upsert({
+                      where: { email },
+                      create: {
                         id: response.user.id,
                         email,
                         role,
@@ -110,7 +114,17 @@ export function initSupertokens() {
                         selectedSolution,
                         selectedSolutionNotes: solutionNotes,
                       },
+                      update: {
+                        // Re-link existing record to the new SuperTokens ID and
+                        // refresh any fields the user provided during re-registration.
+                        id: response.user.id,
+                        fullName,
+                        selectedSolution: selectedSolution ?? undefined,
+                        selectedSolutionNotes: solutionNotes ?? undefined,
+                      },
                     });
+
+                    logger.debug(`Prisma user upserted for ${email} with ID ${newUser.id}`);
 
                     if (requestedRole !== PrismaUserRole.CLIENT) {
                       logger.warn('Blocked non-client role request at public signup', {
