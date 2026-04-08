@@ -849,3 +849,19 @@ model SiteContent {
 
   @@map("site_content")
 }
+
+model Partner {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  name        String
+  logoUrl     String   @map("logo_url")
+  logoUrlDark String?  @map("logo_url_dark")
+  websiteUrl  String?  @map("website_url")
+  category    String   @default("client")
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("partners")
+}

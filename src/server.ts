@@ -67,6 +67,7 @@ import adminDashboardRoutes from './routes/admin/dashboard';
 import publicTalentRoutes from './routes/public/talent';
 import publicBookingRoutes from './routes/public/booking';
 import publicContentRoutes from './routes/public/content';
+import publicPartnersRoutes from './routes/public/partners';
 
 // Webhook routes
 import calcomWebhookRoutes from './routes/webhooks/calcom';
@@ -145,6 +146,7 @@ app.get('/health', (_req: Request, res: Response) => {
 app.use('/api/public/talent', publicTalentRoutes);
 app.use('/api/public/booking', publicBookingRoutes);
 app.use('/api/public/content', publicContentRoutes);
+app.use('/api/partners', publicPartnersRoutes);
 
 // Webhook Routes (no auth required)
 app.use('/api/webhooks/calcom', calcomWebhookRoutes);
