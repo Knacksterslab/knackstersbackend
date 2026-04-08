@@ -33,7 +33,13 @@ export class ProjectService {
     return ProjectMutations.createProject(data);
   }
 
-  async updateProject(projectId: string, updates: any) {
+  async updateProject(projectId: string, updates: Partial<{
+    title: string;
+    description: string;
+    status: ProjectStatus;
+    estimatedHours: number;
+    dueDate: Date;
+  }>) {
     return ProjectMutations.updateProject(projectId, updates);
   }
 

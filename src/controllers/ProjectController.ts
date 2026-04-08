@@ -85,7 +85,23 @@ export class ProjectController {
       const userId = this.getUserId(req, res);
       if (!userId) return;
 
-      const project = await ProjectService.updateProject(req.params.id, req.body);
+      const VALID_STATUSES: ProjectStatus[] = [
+        'NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'ARCHIVED', 'ON_HOLD', 'CANCELLED',
+      ];
+
+      const { title, description, estimatedHours, dueDate, status } = req.body;
+
+      if (status !== undefined && !VALID_STATUSES.includes(status)) {
+        return ApiResponse.badRequest(res, `Invalid project status: "${status}". Must be one of: ${VALID_STATUSES.join(', ')}`);
+      }
+
+      const project = await ProjectService.updateProject(req.params.id, {
+        ...(title !== undefined && { title }),
+        ...(description !== undefined && { description }),
+        ...(estimatedHours !== undefined && { estimatedHours }),
+        ...(dueDate !== undefined && { dueDate: new Date(dueDate) }),
+        ...(status !== undefined && { status: status as ProjectStatus }),
+      });
       return ApiResponse.success(res, project);
     } catch (error: any) {
       logger.error('updateProject failed', error);
