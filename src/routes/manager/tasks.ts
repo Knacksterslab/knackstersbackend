@@ -110,6 +110,12 @@ router.patch('/:id/assign', async (req: AuthRequest, res: Response): Promise<any
       },
     });
 
+    // Move parent project to IN_PROGRESS — clears the "Pending Review" banner on the client side
+    await prisma.project.update({
+      where: { id: task.projectId },
+      data: { status: 'IN_PROGRESS' },
+    });
+
     // Log the activity
     await prisma.activityLog.create({
       data: {

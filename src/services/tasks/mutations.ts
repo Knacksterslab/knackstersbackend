@@ -190,6 +190,12 @@ export class TaskMutations {
       include: { assignedTo: { select: { fullName: true } } },
     });
 
+    // Move parent project to IN_PROGRESS — clears the "Pending Review" banner on the client side
+    await prisma.project.update({
+      where: { id: task.projectId },
+      data: { status: 'IN_PROGRESS' },
+    });
+
     // In-app notification to talent
     await NotificationService.createNotification({
       userId: assignedToId,
