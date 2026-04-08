@@ -105,4 +105,29 @@ export class SupportTicketController {
       return errorResponse(res, error.message || 'Failed to fetch ticket statistics');
     }
   }
+
+  /**
+   * Admin: Send a reply to the client (also optionally updates status)
+   */
+  static async replyToTicket(req: AuthRequest, res: Response) {
+    try {
+      const adminId = req.userId;
+      if (!adminId) {
+        return errorResponse(res, 'User not authenticated', 401);
+      }
+
+      const { id } = req.params;
+      const { replyMessage, status } = req.body;
+
+      if (!replyMessage || !replyMessage.trim()) {
+        return errorResponse(res, 'Reply message is required', 400);
+      }
+
+      const ticket = await SupportTicketService.replyToTicket(id, adminId, replyMessage.trim(), status);
+      return successResponse(res, ticket, 'Reply sent successfully');
+    } catch (error: any) {
+      console.error('Reply to ticket error:', error);
+      return errorResponse(res, error.message || 'Failed to send reply');
+    }
+  }
 }

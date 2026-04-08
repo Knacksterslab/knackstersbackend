@@ -9,6 +9,7 @@ import { UserRole } from '../../config/supertokens';
 import { prisma } from '../../lib/prisma';
 import { ApiResponse } from '../../utils/response';
 import { logger } from '../../utils/logger';
+import { SupportTicketController } from '../../controllers/SupportTicketController';
 
 const router = Router();
 
@@ -99,6 +100,9 @@ router.patch('/tickets/:id', async (req, res) => {
     return ApiResponse.error(res, error.message || 'Failed to update ticket');
   }
 });
+
+// POST /api/admin/support/tickets/:id/reply — send reply to client
+router.post('/tickets/:id/reply', (req, res) => SupportTicketController.replyToTicket(req as any, res));
 
 // GET /api/admin/support/stats — aggregate counts
 router.get('/stats', async (_req, res) => {

@@ -1282,3 +1282,85 @@ export async function sendAdminNewSupportTicketEmail(data: {
     logger.error('Failed to send admin new support ticket email', error);
   }
 }
+
+// ─── 19. Client: Support Ticket Reply ────────────────────────────────────────
+
+export async function sendClientTicketReplyEmail(data: {
+  ticketNumber: string;
+  clientName: string;
+  clientEmail: string;
+  subject: string;
+  replyMessage: string;
+  status: string;
+}): Promise<void> {
+  const statusLabels: Record<string, string> = {
+    OPEN: 'Open',
+    IN_PROGRESS: 'In Progress',
+    RESOLVED: 'Resolved',
+    CLOSED: 'Closed',
+  };
+  const statusColors: Record<string, string> = {
+    OPEN: '#2563eb',
+    IN_PROGRESS: '#ea580c',
+    RESOLVED: '#16a34a',
+    CLOSED: '#6b7280',
+  };
+  const statusLabel = statusLabels[data.status] || data.status;
+  const statusColor = statusColors[data.status] || '#6b7280';
+
+  const html = layout(`
+    <h1 style="font-size:20px;font-weight:700;color:#111827;margin:0 0 6px;">
+      We've responded to your ticket
+    </h1>
+    <p style="font-size:15px;color:#6b7280;margin:0 0 24px;">
+      Hi ${data.clientName}, here's an update on your support request.
+    </p>
+
+    <div style="background:#fff7ed;border-radius:8px;padding:16px;margin-bottom:24px;border-left:4px solid #FF9634;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <p style="font-size:16px;font-weight:700;color:#111827;margin:0;font-family:monospace;">${data.ticketNumber}</p>
+        <span style="display:inline-block;padding:3px 10px;background:${statusColor};color:#fff;border-radius:20px;font-size:12px;font-weight:600;">
+          ${statusLabel}
+        </span>
+      </div>
+      <p style="font-size:14px;color:#374151;margin:8px 0 0;font-weight:600;">${data.subject}</p>
+    </div>
+
+    <p style="font-size:14px;color:#6b7280;margin:0 0 6px;">Reply from our support team</p>
+    <div style="background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:24px;border:1px solid #e5e7eb;">
+      <p style="font-size:14px;color:#374151;line-height:1.7;margin:0;">${data.replyMessage.replace(/\n/g, '<br/>')}</p>
+    </div>
+
+    ${data.status === 'RESOLVED' || data.status === 'CLOSED' ? `
+    <div style="background:#f0fdf4;border-radius:8px;padding:16px;margin-bottom:24px;border:1px solid #bbf7d0;">
+      <p style="font-size:14px;color:#15803d;margin:0;">
+        ✓ Your ticket has been marked as <strong>${statusLabel}</strong>. If you have further questions, you can open a new support ticket from your dashboard.
+      </p>
+    </div>
+    ` : `
+    <p style="font-size:14px;color:#6b7280;margin:0 0 24px;">
+      If you have additional questions, please reply by logging into your dashboard and submitting a new ticket.
+    </p>
+    `}
+
+    ${primaryButton('View My Tickets', `${WEBSITE_URL}/support`)}
+
+    ${divider()}
+
+    <p style="font-size:13px;color:#9ca3af;margin:0;">
+      This is a response to your support ticket. Please do not reply to this email directly.
+    </p>
+  `);
+
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: data.clientEmail,
+      subject: `Re: [${data.ticketNumber}] ${data.subject.substring(0, 60)}`,
+      html,
+    });
+    logger.info(`Client ticket reply email sent for: ${data.ticketNumber} to ${data.clientEmail}`);
+  } catch (error) {
+    logger.error('Failed to send client ticket reply email', error);
+  }
+}

@@ -1,6 +1,6 @@
 import prisma from '../lib/prisma';
 import { TicketStatus } from '@prisma/client';
-import { sendAdminNewSupportTicketEmail } from './EmailService';
+import { sendAdminNewSupportTicketEmail, sendClientTicketReplyEmail } from './EmailService';
 import NotificationService from './NotificationService';
 import { logger } from '../utils/logger';
 
@@ -52,8 +52,27 @@ class SupportTicketService {
       },
     });
 
-    // Fire-and-forget: email admin + notify all admins in-app
+    // Fire-and-forget: email admin + notify all admins + notify CSM in-app
     try {
+      // Notify the client's assigned CSM (account manager) if they have one
+      if (ticket.user) {
+        prisma.user.findUnique({
+          where: { id: data.userId },
+          select: { accountManagerId: true, fullName: true, email: true },
+        }).then(client => {
+          if (client?.accountManagerId) {
+            NotificationService.createNotification({
+              userId: client.accountManagerId,
+              type: 'INFO',
+              title: `Support ticket from ${client.fullName || client.email}`,
+              message: `Your client "${client.fullName || client.email}" submitted a support ticket: "${data.subject}"`,
+              actionUrl: `/admin-dashboard/support`,
+              actionLabel: 'View Ticket',
+            }).catch(err => logger.error('CSM support ticket notification failed', err));
+          }
+        }).catch(err => logger.error('Failed to fetch client for CSM notification', err));
+      }
+
       sendAdminNewSupportTicketEmail({
         ticketNumber,
         clientName: ticket.user.fullName || ticket.user.email,
@@ -194,6 +213,56 @@ class SupportTicketService {
         },
       },
     });
+
+    return ticket;
+  }
+
+  /**
+   * Send a reply to the client and optionally update ticket status
+   */
+  async replyToTicket(ticketId: string, adminId: string, replyMessage: string, status?: TicketStatus) {
+    const updateData: any = {
+      lastReply: replyMessage,
+      repliedAt: new Date(),
+    };
+
+    if (status) {
+      updateData.status = status;
+      if (status === 'RESOLVED' || status === 'CLOSED') {
+        updateData.resolvedAt = new Date();
+        updateData.resolvedById = adminId;
+      }
+    }
+
+    const ticket = await prisma.supportTicket.update({
+      where: { id: ticketId },
+      data: updateData,
+      include: {
+        user: {
+          select: { id: true, email: true, fullName: true },
+        },
+      },
+    });
+
+    // Email the client
+    sendClientTicketReplyEmail({
+      ticketNumber: ticket.ticketNumber,
+      clientName: ticket.user.fullName || ticket.user.email,
+      clientEmail: ticket.user.email,
+      subject: ticket.subject,
+      replyMessage,
+      status: ticket.status,
+    }).catch(err => logger.error('Client ticket reply email failed', err));
+
+    // In-app notification to client
+    NotificationService.createNotification({
+      userId: ticket.user.id,
+      type: 'INFO',
+      title: `Support reply: ${ticket.ticketNumber}`,
+      message: `Your support ticket "${ticket.subject}" has a new reply.`,
+      actionUrl: '/support',
+      actionLabel: 'View Ticket',
+    }).catch(err => logger.error('Client ticket reply notification failed', err));
 
     return ticket;
   }

@@ -43,6 +43,8 @@ import searchRoutes from './routes/client/search';
 
 // User routes
 import userPreferencesRoutes from './routes/user/preferences';
+import userProfileRoutes from './routes/user/profile';
+import userSettingsRoutes from './routes/user/settings';
 
 // Talent routes
 import talentDashboardRoutes from './routes/talent/dashboard';
@@ -172,8 +174,10 @@ app.use('/api/client/stripe', stripeRoutes);
 app.use('/api/client/support', supportRoutes);
 app.use('/api/client/search', searchRoutes);
 
-// User Routes (protected)
+// User Routes (protected — any authenticated role)
 app.use('/api/user/preferences', userPreferencesRoutes);
+app.use('/api/user/profile', userProfileRoutes);
+app.use('/api/user/settings', userSettingsRoutes);
 
 // Talent Routes
 app.use('/api/talent', talentDashboardRoutes);

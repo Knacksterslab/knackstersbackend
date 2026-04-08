@@ -754,6 +754,10 @@ model SupportTicket {
   resolvedById     String?        @map("resolved_by")
   resolvedBy       User?          @relation("TicketResolver", fields: [resolvedById], references: [id])
   resolutionNotes  String?        @map("resolution_notes")
+
+  // Admin reply visible to client
+  lastReply        String?        @map("last_reply")
+  repliedAt        DateTime?      @map("replied_at")
   
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime       @updatedAt @map("updated_at")
