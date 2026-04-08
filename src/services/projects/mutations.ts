@@ -9,6 +9,19 @@ import NotificationService from '../NotificationService';
 import { sendClientTaskRequestEmail, sendCSMNewTaskRequestEmail } from '../EmailService';
 
 export class ProjectMutations {
+  /**
+   * Generate a globally unique project number, retrying on collision.
+   * Format: KN-YYMM-NNNN (global sequence, not per-client).
+   */
+  private static async generateProjectNumber(attempt = 0): Promise<string> {
+    const now = new Date();
+    const yy = String(now.getFullYear()).slice(-2);
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const total = await prisma.project.count();
+    // Add the attempt offset so retries produce a different number immediately
+    return `KN-${yy}${mm}-${String(total + 1 + attempt).padStart(4, '0')}`;
+  }
+
   static async createProject(data: {
     clientId: string;
     title: string;
@@ -19,12 +32,6 @@ export class ProjectMutations {
     taskType?: string;
     isTrialToHire?: boolean;
   }) {
-    const projectCount = await prisma.project.count({ where: { clientId: data.clientId } });
-    const now = new Date();
-    const yy = String(now.getFullYear()).slice(-2);
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const projectNumber = `KN-${yy}${mm}-${String(projectCount + 1).padStart(3, '0')}`;
-
     // Encode category + trial-to-hire into taskType:
     //   "TRIAL_DEVELOPMENT", "TRIAL_DESIGN", etc. — trial with category
     //   "TRIAL_HIRE"                               — trial, no category
@@ -35,18 +42,38 @@ export class ProjectMutations {
         : 'TRIAL_HIRE'
       : data.taskType || undefined;
 
-    const project = await prisma.project.create({
-      data: {
-        clientId: data.clientId,
-        title: data.title,
-        description: data.description,
-        priority: data.priority,
-        estimatedHours: data.estimatedHours,
-        dueDate: data.dueDate,
-        projectNumber,
-        status: 'NOT_STARTED',
-      },
-    });
+    // Retry loop — handles race conditions and deleted-project gaps
+    let project: Awaited<ReturnType<typeof prisma.project.create>> | null = null;
+    let projectNumber = '';
+    for (let attempt = 0; attempt < 10; attempt++) {
+      try {
+        projectNumber = await ProjectMutations.generateProjectNumber(attempt);
+        project = await prisma.project.create({
+          data: {
+            clientId: data.clientId,
+            title: data.title,
+            description: data.description,
+            priority: data.priority,
+            estimatedHours: data.estimatedHours,
+            dueDate: data.dueDate,
+            projectNumber,
+            status: 'NOT_STARTED',
+          },
+        });
+        break; // success — exit retry loop
+      } catch (err: any) {
+        if (err?.code === 'P2002' && err?.meta?.target?.includes('project_number')) {
+          // Collision — back off briefly and retry with a higher offset
+          await new Promise(r => setTimeout(r, 30 * (attempt + 1)));
+          continue;
+        }
+        throw err; // unrelated error — rethrow immediately
+      }
+    }
+
+    if (!project) {
+      throw new Error('Failed to generate a unique project number after multiple attempts');
+    }
 
     // Auto-create initial task (PENDING until manager assigns talent)
     const taskCount = await prisma.task.count({ where: { projectId: project.id } });
