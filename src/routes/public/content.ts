@@ -12,6 +12,24 @@ import { logger } from '../../utils/logger';
 const router = Router();
 
 /**
+ * Get social proof metrics and testimonials (manually managed via admin dashboard)
+ * Public endpoint - no auth required
+ */
+router.get('/social-proof', async (_req: Request, res: Response): Promise<any> => {
+  try {
+    const content = await ContentService.getContent('social-proof');
+    if (!content) {
+      return res.status(404).json({ error: 'Social proof content not configured' });
+    }
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    return ApiResponse.success(res, { content });
+  } catch (error: any) {
+    logger.error('Get social-proof content failed', error);
+    return ApiResponse.error(res, 'Failed to load social proof content', 500);
+  }
+});
+
+/**
  * Get landing page hero / talent cards
  * Public endpoint - no auth required
  */

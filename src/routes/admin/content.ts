@@ -36,4 +36,35 @@ router.put('/', requireAuth, requireRole(UserRole.ADMIN), async (req: Request, r
   }
 });
 
+// ─── Social Proof ────────────────────────────────────────────────────────────
+
+// GET - Fetch social proof content
+router.get('/social-proof', requireAuth, requireRole(UserRole.ADMIN), async (_req: Request, res: Response): Promise<any> => {
+  try {
+    const content = await ContentService.getContent('social-proof');
+    if (!content) {
+      return res.status(404).json({ error: 'No content saved yet' });
+    }
+    return res.json({ content });
+  } catch (error) {
+    console.error('Error fetching social-proof content:', error);
+    return res.status(500).json({ error: 'Failed to fetch content' });
+  }
+});
+
+// PUT - Update social proof content
+router.put('/social-proof', requireAuth, requireRole(UserRole.ADMIN), async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { content } = req.body;
+    if (!content) {
+      return res.status(400).json({ error: 'Content is required' });
+    }
+    await ContentService.updateContent('social-proof', content);
+    return res.json({ success: true, content });
+  } catch (error) {
+    console.error('Error updating social-proof content:', error);
+    return res.status(500).json({ error: 'Failed to update content' });
+  }
+});
+
 export default router;
