@@ -71,6 +71,48 @@ function divider(): string {
   return `<hr style="border:none;border-top:1px solid #e5e7eb;margin:28px 0;" />`;
 }
 
+// ─── 0. Email Verification ───────────────────────────────────────────────────
+
+export async function sendEmailVerificationEmail(data: {
+  fullName: string;
+  email: string;
+  verificationLink: string;
+}): Promise<void> {
+  const firstName = data.fullName.split(' ')[0];
+
+  const html = layout(`
+    <h1 style="font-size:24px;font-weight:700;color:#111827;margin:0 0 8px;">
+      Verify your email address
+    </h1>
+    <p style="font-size:15px;color:#6b7280;margin:0 0 24px;">
+      Hi ${firstName}, you're almost there!
+    </p>
+
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px;">
+      Click the button below to confirm your email address and activate your Knacksters account.
+      This link expires in <strong>24 hours</strong>.
+    </p>
+
+    ${primaryButton('Verify my email', data.verificationLink)}
+
+    ${divider()}
+
+    <p style="font-size:13px;color:#9ca3af;line-height:1.6;margin:0;">
+      If you didn't create a Knacksters account, you can safely ignore this email.
+      The link will expire automatically.<br/><br/>
+      If the button doesn't work, copy and paste this link into your browser:<br/>
+      <a href="${data.verificationLink}" style="color:#FF9634;word-break:break-all;">${data.verificationLink}</a>
+    </p>
+  `);
+
+  await resend.emails.send({
+    from: FROM,
+    to: data.email,
+    subject: 'Verify your Knacksters email address',
+    html,
+  });
+}
+
 // ─── 1. Client Welcome Email ──────────────────────────────────────────────────
 
 export async function sendClientWelcomeEmail(data: {
@@ -304,6 +346,7 @@ export async function sendClientBookingConfirmationEmail(data: {
   email: string;
   startTime: Date;
   videoCallUrl?: string | null;
+  isFirstBooking?: boolean;
 }): Promise<void> {
   const formattedDate = data.startTime.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -321,9 +364,15 @@ export async function sendClientBookingConfirmationEmail(data: {
     ? `${primaryButton('Join Meeting', data.videoCallUrl)}`
     : `<p style="font-size:14px;color:#6b7280;margin-top:16px;">A video link will be sent to your email by the organizer.</p>`;
 
+  const isFirstBooking = data.isFirstBooking !== false; // default true for safety
+  const callLabel = isFirstBooking ? 'Onboarding Call' : 'Strategy Call';
+  const agendaItems = isFirstBooking
+    ? ['Your business needs and goals', 'Available talent and service options', 'Pricing and subscription plans']
+    : ['Project progress and priorities', 'Any blockers or support needed', 'Next steps and planning'];
+
   const html = layout(`
     <h1 style="font-size:24px;font-weight:700;color:#111827;margin:0 0 8px;">
-      Your Onboarding Call is Confirmed! 📅
+      Your ${callLabel} is Confirmed! 📅
     </h1>
     <p style="font-size:15px;color:#6b7280;margin:0 0 24px;">
       We're looking forward to speaking with you, ${data.fullName.split(' ')[0]}.
@@ -340,9 +389,7 @@ export async function sendClientBookingConfirmationEmail(data: {
       In this call we'll cover:
     </p>
     <ul style="font-size:14px;color:#374151;line-height:1.8;padding-left:20px;margin:0 0 24px;">
-      <li>Your business needs and goals</li>
-      <li>Available talent and service options</li>
-      <li>Pricing and subscription plans</li>
+      ${agendaItems.map(item => `<li>${item}</li>`).join('')}
     </ul>
 
     ${meetingBlock}
@@ -359,7 +406,7 @@ export async function sendClientBookingConfirmationEmail(data: {
     await resend.emails.send({
       from: FROM,
       to: data.email,
-      subject: `Your Onboarding Call: ${formattedDate} at ${formattedTime}`,
+      subject: `Your ${callLabel}: ${formattedDate} at ${formattedTime}`,
       html,
     });
     logger.info(`Booking confirmation email sent to client: ${data.email}`);

@@ -4,6 +4,7 @@
  */
 
 import { Response } from 'express';
+export { PUBLIC_CACHE_CONTROL } from '../config/constants';
 
 export class ApiResponse {
   static success<T>(res: Response, data: T, statusCode = 200) {

@@ -76,6 +76,8 @@ export interface DashboardOverview {
     description?: string | null;
     bookingId?: string | null;
   } | null;
+  /** Total number of meetings ever booked (including past). 0 = never booked before. */
+  totalMeetingCount: number;
 }
 
 export interface ProjectSummary {

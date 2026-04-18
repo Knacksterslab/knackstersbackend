@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import { UserRole } from '../../config/supertokens';
 import ContentService from '../../services/ContentService';
+import { logger } from '../../utils/logger';
 
 const router = Router();
 
@@ -14,7 +15,7 @@ router.get('/', requireAuth, requireRole(UserRole.ADMIN), async (_req: Request, 
     }
     return res.json({ content });
   } catch (error) {
-    console.error('Error fetching content:', error);
+    logger.error('Error fetching content', error);
     return res.status(500).json({ error: 'Failed to fetch content' });
   }
 });
@@ -31,7 +32,7 @@ router.put('/', requireAuth, requireRole(UserRole.ADMIN), async (req: Request, r
     await ContentService.updateContent('landing-hero', content);
     return res.json({ success: true, content });
   } catch (error) {
-    console.error('Error updating content:', error);
+    logger.error('Error updating content', error);
     return res.status(500).json({ error: 'Failed to update content' });
   }
 });
@@ -47,7 +48,7 @@ router.get('/social-proof', requireAuth, requireRole(UserRole.ADMIN), async (_re
     }
     return res.json({ content });
   } catch (error) {
-    console.error('Error fetching social-proof content:', error);
+    logger.error('Error fetching social-proof content', error);
     return res.status(500).json({ error: 'Failed to fetch content' });
   }
 });
@@ -62,7 +63,7 @@ router.put('/social-proof', requireAuth, requireRole(UserRole.ADMIN), async (req
     await ContentService.updateContent('social-proof', content);
     return res.json({ success: true, content });
   } catch (error) {
-    console.error('Error updating social-proof content:', error);
+    logger.error('Error updating social-proof content', error);
     return res.status(500).json({ error: 'Failed to update content' });
   }
 });

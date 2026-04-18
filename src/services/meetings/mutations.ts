@@ -7,6 +7,7 @@ import { prisma } from '../../lib/prisma';
 import { MeetingType } from '@prisma/client';
 import NotificationService from '../NotificationService';
 import { MeetingQueries } from './queries';
+import { logger } from '../../utils/logger';
 
 export class MeetingMutations {
   static async createMeeting(data: {
@@ -45,7 +46,7 @@ export class MeetingMutations {
         userId: data.clientId,
         type: 'INFO',
         title: 'Meeting Scheduled',
-        message: `Your onboarding call has been booked. We'll see you soon!`,
+        message: `Your meeting has been booked. We'll see you soon!`,
         actionUrl: `/meetings/${meeting.id}`,
         actionLabel: 'View Meeting',
       }),
@@ -143,7 +144,7 @@ export class MeetingMutations {
         );
       } catch (err) {
         // Non-fatal: DB record is already cancelled; log and continue
-        console.error('[cancelMeeting] Cal.com API cancel failed:', err);
+        logger.error('Cal.com API cancel failed', err);
       }
     }
 

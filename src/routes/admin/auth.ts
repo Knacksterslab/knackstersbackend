@@ -14,6 +14,7 @@ import { ApiResponse } from '../../utils/response';
 import { requireAuth, requireRole, AuthRequest } from '../../middleware/auth';
 import { UserRole } from '../../config/supertokens';
 import { prisma } from '../../lib/prisma';
+import { logger } from '../../utils/logger';
 
 const router = Router();
 
@@ -54,7 +55,7 @@ router.get('/status', requireAuth, requireRole(UserRole.ADMIN), async (req: Auth
       authenticated: true,
     });
   } catch (error: any) {
-    console.error('Admin status check failed:', error);
+    logger.error('Admin status check failed', error);
     return ApiResponse.error(res, 'Failed to verify admin status');
   }
 });

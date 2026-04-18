@@ -1,9 +1,7 @@
 import Stripe from 'stripe';
-import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
+import { prisma } from '../lib/prisma';
 import { PLAN_CONFIG } from './subscriptions/config';
-
-const prisma = new PrismaClient();
 
 if (!process.env.STRIPE_SECRET_KEY) {
   logger.error('STRIPE_SECRET_KEY not set - Add to backend/.env');

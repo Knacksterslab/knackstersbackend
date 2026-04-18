@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import SearchService from '../services/SearchService';
 import { successResponse, errorResponse } from '../utils/response';
+import { logger } from '../utils/logger';
 
 export class SearchController {
   /**
@@ -44,7 +45,7 @@ export class SearchController {
 
       return successResponse(res, results);
     } catch (error: any) {
-      console.error('Search error:', error);
+      logger.error('Search error', error);
       return errorResponse(res, error.message || 'Search failed');
     }
   }

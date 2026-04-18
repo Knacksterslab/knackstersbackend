@@ -3,10 +3,9 @@
  * Handles automatic assignment of account managers to clients based on solution selection
  */
 
-import { PrismaClient, SolutionType, UserRole } from '@prisma/client';
+import { SolutionType, UserRole } from '@prisma/client';
 import { logger } from '../utils/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 
 export class ManagerAssignmentService {
   /**

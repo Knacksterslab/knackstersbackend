@@ -9,12 +9,11 @@ import { requireAuth, requireRole } from '../../middleware/auth';
 import { UserRole } from '../../config/supertokens';
 import { ApiResponse } from '../../utils/response';
 import { logger } from '../../utils/logger';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../lib/prisma';
 import ManagerAssignmentService from '../../services/ManagerAssignmentService';
 import { uploadToStorage } from '../../config/supabase-storage';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Multer for avatar uploads
 const upload = multer({

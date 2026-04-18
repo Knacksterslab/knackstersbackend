@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { verifySession } from 'supertokens-node/recipe/session/framework/express';
 import { SessionRequest } from 'supertokens-node/framework/express';
 import { UserRole } from '../config/supertokens';
+import { logger } from '../utils/logger';
 
 // Extend Express Request type to include session
 export interface AuthRequest extends SessionRequest {
@@ -51,7 +52,7 @@ export function requireRole(...allowedRoles: UserRole[]) {
       
       return next();
     } catch (error) {
-      console.error('Role verification error:', error);
+      logger.error('Role verification error', error);
       return _res.status(500).json({ error: 'Internal server error' });
     }
   };

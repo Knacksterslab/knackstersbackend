@@ -81,6 +81,11 @@ export class DashboardService {
         },
       });
 
+      // Count all meetings ever booked by this client (including past)
+      const totalMeetingCount = await prisma.meeting.count({
+        where: { clientId: userId },
+      });
+
       // Get upcoming meeting (next scheduled meeting for this client)
       const upcomingMeeting = await prisma.meeting.findFirst({
         where: {
@@ -187,6 +192,7 @@ export class DashboardService {
               isAvailable: user.accountManager.status === 'ACTIVE',
             }
           : null,
+        totalMeetingCount,
         upcomingMeeting: upcomingMeeting
           ? {
               id: upcomingMeeting.id,

@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import SupportTicketService from '../services/SupportTicketService';
 import { successResponse, errorResponse } from '../utils/response';
+import { logger } from '../utils/logger';
 
 export class SupportTicketController {
   /**
@@ -36,7 +37,7 @@ export class SupportTicketController {
 
       return successResponse(res, ticket, 'Support ticket created successfully', 201);
     } catch (error: any) {
-      console.error('Create ticket error:', error);
+      logger.error('Create ticket error', error);
       return errorResponse(res, error.message || 'Failed to create support ticket');
     }
   }
@@ -59,7 +60,7 @@ export class SupportTicketController {
 
       return successResponse(res, tickets);
     } catch (error: any) {
-      console.error('Get tickets error:', error);
+      logger.error('Get tickets error', error);
       return errorResponse(res, error.message || 'Failed to fetch support tickets');
     }
   }
@@ -83,7 +84,7 @@ export class SupportTicketController {
 
       return successResponse(res, ticket);
     } catch (error: any) {
-      console.error('Get ticket error:', error);
+      logger.error('Get ticket error', error);
       return errorResponse(res, error.message || 'Failed to fetch ticket');
     }
   }
@@ -101,7 +102,7 @@ export class SupportTicketController {
       const stats = await SupportTicketService.getUserTicketStats(userId);
       return successResponse(res, stats);
     } catch (error: any) {
-      console.error('Get ticket stats error:', error);
+      logger.error('Get ticket stats error', error);
       return errorResponse(res, error.message || 'Failed to fetch ticket statistics');
     }
   }
@@ -126,7 +127,7 @@ export class SupportTicketController {
       const ticket = await SupportTicketService.replyToTicket(id, adminId, replyMessage.trim(), status);
       return successResponse(res, ticket, 'Reply sent successfully');
     } catch (error: any) {
-      console.error('Reply to ticket error:', error);
+      logger.error('Reply to ticket error', error);
       return errorResponse(res, error.message || 'Failed to send reply');
     }
   }

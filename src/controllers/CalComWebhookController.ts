@@ -109,25 +109,21 @@ export class CalComWebhookController {
         return ApiResponse.badRequest(res, 'No attendee information');
       }
 
-      // Determine booking type based on event type or metadata
-      const isClientOnboarding = payload.type.toLowerCase().includes('client') || 
-                                 payload.type.toLowerCase().includes('onboarding') ||
-                                 payload.title.toLowerCase().includes('client') ||
-                                 payload.title.toLowerCase().includes('onboarding');
+      // Determine booking type by looking up the attendee in both tables.
+      // This is more reliable than string-matching on payload.type/title, which
+      // breaks whenever the Cal.com event is renamed.
+      const [clientUser, talentProfile] = await Promise.all([
+        prisma.user.findUnique({ where: { email: attendee.email } }),
+        prisma.talentProfile.findUnique({ where: { email: attendee.email } }),
+      ]);
 
-      if (isClientOnboarding) {
-        // Handle client onboarding call
-        logger.info('Processing client onboarding booking', { email: attendee.email });
+      const isClientBooking = clientUser?.role === 'CLIENT';
 
-        // Find user by email
-        const user = await prisma.user.findUnique({
-          where: { email: attendee.email },
-        });
+      if (isClientBooking) {
+        const user = clientUser!;
 
-        if (!user) {
-          logger.error(`No user found for email: ${attendee.email}`);
-          return ApiResponse.notFound(res, 'User');
-        }
+        // Handle client strategy / onboarding call
+        logger.info('Processing client booking', { email: attendee.email });
 
         // Calculate duration in minutes
         const startTime = new Date(payload.startTime);
@@ -147,13 +143,19 @@ export class CalComWebhookController {
           return ApiResponse.success(res, { received: true, meetingId: existingMeeting.id });
         }
 
+        // Determine if this is the client's first ever booking
+        const previousMeetingCount = await prisma.meeting.count({ where: { clientId: user.id } });
+        const isFirstBooking = previousMeetingCount === 0;
+
         // Create Meeting record (webhook arrived before frontend POST)
         const meeting = await prisma.meeting.create({
           data: {
             clientId: user.id,
             type: MeetingType.MEET_AND_GREET,
-            title: payload.title || 'Client Onboarding Call',
-            description: payload.description || 'Welcome! Let\'s discuss your project needs and how we can help.',
+            title: payload.title || (isFirstBooking ? 'Onboarding Call' : 'Strategy Call'),
+            description: payload.description || (isFirstBooking
+              ? "Welcome! Let's discuss your project needs and how we can help."
+              : "Strategy call with your Customer Success Manager."),
             scheduledAt: startTime,
             durationMinutes: durationMinutes,
             timezone: attendee.timeZone,
@@ -185,16 +187,19 @@ export class CalComWebhookController {
             email: user.email,
             startTime,
             videoCallUrl: payload.location || null,
+            isFirstBooking,
           }).catch(err => logger.error('Client booking confirmation email failed', err));
         }
+
+        const callLabel = isFirstBooking ? 'onboarding call' : 'strategy call';
 
         // Create notification for client
         try {
           await NotificationService.createNotification({
             userId: user.id,
             type: 'SUCCESS',
-            title: 'Onboarding Call Scheduled',
-            message: `Your onboarding call is scheduled for ${startTime.toLocaleDateString('en-US', { 
+            title: isFirstBooking ? 'Onboarding Call Scheduled' : 'Strategy Call Scheduled',
+            message: `Your ${callLabel} is scheduled for ${startTime.toLocaleDateString('en-US', { 
               weekday: 'long', 
               month: 'long', 
               day: 'numeric' 
@@ -233,23 +238,18 @@ export class CalComWebhookController {
 
         return ApiResponse.success(res, {
           received: true,
-          type: 'client_onboarding',
+          type: 'client_booking',
           userId: user.id,
           meetingId: meeting.id,
           bookingId: payload.uid,
         });
       } else {
-        // Handle talent interview booking (existing logic)
+        // Handle talent interview booking
         logger.info('Processing talent interview booking', { email: attendee.email });
 
-        // Find talent profile by email
-        const talentProfile = await prisma.talentProfile.findUnique({
-          where: { email: attendee.email },
-        });
-
         if (!talentProfile) {
-          logger.error(`No talent profile found for email: ${attendee.email}`);
-          return ApiResponse.notFound(res, 'Talent profile');
+          logger.error(`Attendee not found as client or talent: ${attendee.email}`);
+          return ApiResponse.notFound(res, 'Attendee');
         }
 
         // Update talent profile with booking information

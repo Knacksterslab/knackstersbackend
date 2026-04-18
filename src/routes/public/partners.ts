@@ -5,6 +5,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../../lib/prisma';
 import { logger } from '../../utils/logger';
+import { PUBLIC_CACHE_CONTROL } from '../../utils/response';
 
 const router = Router();
 
@@ -24,8 +25,7 @@ router.get('/', async (_req: Request, res: Response): Promise<any> => {
       },
     });
 
-    // Short cache header — CDN/browser can cache for 60s
-    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    res.setHeader('Cache-Control', PUBLIC_CACHE_CONTROL);
 
     return res.json({ partners });
   } catch (error: any) {

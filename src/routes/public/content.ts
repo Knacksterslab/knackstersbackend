@@ -6,7 +6,7 @@
 
 import { Router, Request, Response } from 'express';
 import ContentService from '../../services/ContentService';
-import { ApiResponse } from '../../utils/response';
+import { ApiResponse, PUBLIC_CACHE_CONTROL } from '../../utils/response';
 import { logger } from '../../utils/logger';
 
 const router = Router();
@@ -21,7 +21,7 @@ router.get('/social-proof', async (_req: Request, res: Response): Promise<any> =
     if (!content) {
       return res.status(404).json({ error: 'Social proof content not configured' });
     }
-    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    res.setHeader('Cache-Control', PUBLIC_CACHE_CONTROL);
     return ApiResponse.success(res, { content });
   } catch (error: any) {
     logger.error('Get social-proof content failed', error);

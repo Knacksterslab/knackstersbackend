@@ -105,7 +105,7 @@ export class MeetingService {
       scheduledAt: data.scheduledAt,
       durationMinutes: data.durationMinutes,
       meetingLink: data.videoCallUrl,
-      agenda: data.description || 'Client onboarding strategy call',
+      agenda: data.description || 'Strategy call with your Customer Success Manager',
       bookingId: data.bookingId,
       title: data.title,
     });
