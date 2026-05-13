@@ -4,7 +4,7 @@
  */
 
 import { prisma } from '../../lib/prisma';
-import { SubscriptionPlan, BillingInterval } from '@prisma/client';
+import { SubscriptionPlan } from '@prisma/client';
 import NotificationService from '../NotificationService';
 
 export class SubscriptionMutations {

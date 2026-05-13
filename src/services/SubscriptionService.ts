@@ -32,7 +32,13 @@ export class SubscriptionService {
     priceAmount: number;
     monthlyHours: number;
   }) {
-    return SubscriptionMutations.createSubscription(data);
+    return SubscriptionMutations.createSubscriptionWithInvoice({
+      userId: data.userId,
+      plan: data.plan,
+      priceAmount: data.priceAmount,
+      recurringPriceAmount: null,
+      monthlyHours: data.monthlyHours,
+    });
   }
 
   async updateSubscription(userId: string, updates: any) {
