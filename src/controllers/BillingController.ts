@@ -11,6 +11,7 @@ import { PaymentStatus } from '@prisma/client';
 import { ApiResponse } from '../utils/response';
 import { logger } from '../utils/logger';
 import { PLAN_CONFIG } from '../services/subscriptions/config';
+import HoursBalanceService from '../services/HoursBalanceService';
 
 export class BillingController {
   private static getUserId(req: AuthRequest, res: Response): string | null {
@@ -127,11 +128,23 @@ export class BillingController {
         return ApiResponse.badRequest(res, 'Cannot switch back to Trial plan');
       }
 
+      const current = await SubscriptionService.getActiveSubscription(userId);
+      const currentHours = current?.monthlyHours ?? 0;
+
       const subscription = await SubscriptionService.updateSubscription(userId, {
         plan: plan as any,
         priceAmount: planConfig.monthlyPrice,
+        recurringPriceAmount: null,
         monthlyHours: planConfig.monthlyHours,
       });
+
+      // Upgrades: top up the current period's balance with the extra hours immediately.
+      // Downgrades: leave the current balance intact — reduced allocation kicks in next cycle.
+      const hoursDiff = planConfig.monthlyHours - currentHours;
+      if (hoursDiff > 0) {
+        await HoursBalanceService.topUpCurrentBalance(userId, hoursDiff);
+      }
+
       return ApiResponse.success(res, subscription);
     } catch (error: any) {
       logger.error('upgradeSubscription failed', error);

@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { logger } from '../utils/logger';
 import { prisma } from '../lib/prisma';
 import { PLAN_CONFIG } from './subscriptions/config';
+import { SubscriptionMutations } from './subscriptions/mutations';
 
 if (!process.env.STRIPE_SECRET_KEY) {
   logger.error('STRIPE_SECRET_KEY not set - Add to backend/.env');
@@ -117,7 +118,8 @@ export class StripeService {
   }
 
   /**
-   * Charge customer and activate subscription (called by manager or client self-serve)
+   * Charge customer and activate subscription (called by manager or client self-serve).
+   * For FLEX_RETAINER: charges the onboarding rate and stores the standard recurring rate.
    */
   static async activateSubscription(
     userId: string,
@@ -127,58 +129,44 @@ export class StripeService {
   ): Promise<{ subscriptionId: string; invoiceId: string }> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        paymentMethods: {
-          where: { isDefault: true },
-          take: 1,
-        },
-      },
+      include: { paymentMethods: { where: { isDefault: true }, take: 1 } },
     });
 
-    if (!user) {
-      throw new Error('User not found');
-    }
+    if (!user) throw new Error('User not found');
 
-    // Determine pricing based on plan
     let priceAmount: number;
+    let recurringPriceAmount: number | null = null;
     let monthlyHours: number;
 
     if (customPriceAmount) {
       priceAmount = customPriceAmount;
-      monthlyHours = 0; // Enterprise custom
+      monthlyHours = 0;
     } else {
       const planConfig = PLAN_CONFIG[plan];
-      if (!planConfig) {
-        throw new Error('Invalid plan');
-      }
-      if (plan === 'ENTERPRISE') {
-        throw new Error('Enterprise plan requires custom pricing');
-      }
-      priceAmount = planConfig.monthlyPrice;
-      monthlyHours = planConfig.monthlyHours;
-    }
+      if (!planConfig) throw new Error('Invalid plan');
+      if (plan === 'ENTERPRISE') throw new Error('Enterprise plan requires custom pricing');
 
-    const today = new Date();
-    const nextMonth = new Date(today);
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
+      monthlyHours = planConfig.monthlyHours;
+
+      if (plan === 'FLEX_RETAINER' && 'onboardingPrice' in planConfig) {
+        priceAmount = planConfig.onboardingPrice;
+        recurringPriceAmount = planConfig.monthlyPrice;
+      } else {
+        priceAmount = planConfig.monthlyPrice;
+      }
+    }
 
     let stripePaymentIntentId: string | undefined;
 
-    // Free TRIAL plan — skip Stripe charge entirely
-    if (plan === 'TRIAL' || priceAmount === 0) {
-      logger.info(`Activating free ${plan} plan for user ${userId} — no charge`);
-    } else {
-      // Paid plan — require payment method and charge via Stripe
-      if (!user.stripeCustomerId) {
-        throw new Error('User has no Stripe customer ID');
-      }
+    if (plan !== 'TRIAL' && priceAmount > 0) {
+      if (!user.stripeCustomerId) throw new Error('User has no Stripe customer ID');
 
       const paymentMethod = user.paymentMethods[0];
-      if (!paymentMethod) {
-        throw new Error('User has no payment method on file');
-      }
+      if (!paymentMethod) throw new Error('User has no payment method on file');
 
-      logger.info(`Creating payment intent for ${plan} plan: $${priceAmount / 100} (${priceAmount} cents)`);
+      const description = plan === 'FLEX_RETAINER'
+        ? 'Flex Retainer — Onboarding Period'
+        : `${plan} Plan — First Month`;
 
       const paymentIntent = await stripe.paymentIntents.create({
         amount: priceAmount,
@@ -187,91 +175,29 @@ export class StripeService {
         payment_method: paymentMethod.stripePaymentMethodId!,
         confirm: true,
         off_session: true,
-        description: `${plan} Plan - First Month`,
+        description,
         metadata: { userId: user.id, plan },
       });
 
-      logger.info(`Payment intent created: ${paymentIntent.id}, status: ${paymentIntent.status}`);
-
       if (paymentIntent.status === 'requires_action' || paymentIntent.status === 'requires_payment_method') {
-        throw new Error('Payment requires additional authentication. Please try again or use a different payment method.');
+        throw new Error('Payment requires additional authentication. Please use a different payment method.');
       }
-
       if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'processing') {
-        logger.error(`Payment failed with status: ${paymentIntent.status}`);
         throw new Error(`Payment failed with status: ${paymentIntent.status}`);
       }
 
       stripePaymentIntentId = paymentIntent.id;
     }
 
-    // Create subscription in database
-    const subscription = await prisma.subscription.create({
-      data: {
-        userId: userId,
-        plan: plan,
-        status: 'ACTIVE',
-        billingInterval: 'MONTHLY',
-        priceAmount: priceAmount,
-        currency: 'USD',
-        monthlyHours: monthlyHours,
-        startDate: today,
-        currentPeriodStart: today,
-        currentPeriodEnd: nextMonth,
-        nextBillingDate: plan === 'TRIAL' ? null : nextMonth,
-      },
+    return SubscriptionMutations.createSubscriptionWithInvoice({
+      userId,
+      plan: plan as any,
+      priceAmount,
+      recurringPriceAmount,
+      monthlyHours,
+      trialDomain,
+      stripePaymentIntentId,
+      paymentMethodId: user.paymentMethods[0]?.id ?? null,
     });
-
-    // Mark trial as used on the user record
-    if (plan === 'TRIAL') {
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          trialUsed: true,
-          trialDomain: trialDomain as any ?? null,
-        },
-      });
-    }
-
-    // Create invoice record
-    const invoiceNumber = `INV-${Date.now()}-${user.id.slice(0, 8)}`;
-    const paymentMethod = user.paymentMethods[0];
-    const invoice = await prisma.invoice.create({
-      data: {
-        invoiceNumber: invoiceNumber,
-        userId: userId,
-        subscriptionId: subscription.id,
-        transactionType: 'SUBSCRIPTION_RENEWAL',
-        description: plan === 'TRIAL' ? 'Trial to Hire Plan - Free (50 hrs, 30 days)' : `${plan} Plan - First Month`,
-        subtotal: priceAmount,
-        tax: 0,
-        total: priceAmount,
-        status: 'PAID',
-        invoiceDate: today,
-        dueDate: today,
-        paidAt: new Date(),
-        paymentMethodId: paymentMethod?.id ?? null,
-        stripePaymentIntentId: stripePaymentIntentId ?? null,
-      },
-    });
-
-    // Create initial hours balance
-    if (monthlyHours > 0) {
-      await prisma.hoursBalance.create({
-        data: {
-          userId: userId,
-          subscriptionId: subscription.id,
-          periodStart: today,
-          periodEnd: nextMonth,
-          allocatedHours: monthlyHours,
-          hoursUsed: 0,
-        },
-      });
-    }
-
-    return {
-      subscriptionId: subscription.id,
-      invoiceId: invoice.id,
-    };
   }
 }

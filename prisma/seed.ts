@@ -110,7 +110,8 @@ async function main() {
       plan: SubscriptionPlan.FLEX_RETAINER,
       status: 'ACTIVE',
       billingInterval: 'MONTHLY',
-      priceAmount: 700000, // $7,000 in cents
+      priceAmount: 350000,          // $3,500 onboarding rate in cents
+      recurringPriceAmount: 700000, // $7,000 standard rate in cents
       currency: 'USD',
       monthlyHours: 100,
       extraHoursPurchased: 0,

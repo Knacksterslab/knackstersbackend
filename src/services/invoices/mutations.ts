@@ -22,15 +22,18 @@ export class InvoiceMutations {
       where: { userId: subscription.userId, isDefault: true },
     });
 
+    // Use the recurring standard rate for renewals, not the onboarding rate
+    const renewalAmount = subscription.recurringPriceAmount ?? subscription.priceAmount;
+
     const invoice = await prisma.invoice.create({
       data: {
         invoiceNumber,
         userId: subscription.userId,
         subscriptionId: subscription.id,
         transactionType: 'SUBSCRIPTION_RENEWAL',
-        subtotal: subscription.priceAmount,
+        subtotal: renewalAmount,
         tax: 0,
-        total: subscription.priceAmount,
+        total: renewalAmount,
         currency: subscription.currency,
         status: 'UNPAID',
         invoiceDate: new Date(),
@@ -43,7 +46,7 @@ export class InvoiceMutations {
       userId: subscription.userId,
       type: 'INFO',
       title: 'New Invoice Generated',
-      message: `Invoice ${invoiceNumber} for $${(Number(subscription.priceAmount) / 100).toFixed(2)}`,
+      message: `Invoice ${invoiceNumber} for $${(Number(renewalAmount) / 100).toFixed(2)}`,
       actionUrl: `/billing/invoices/${invoice.id}`,
       actionLabel: 'View Invoice',
     });

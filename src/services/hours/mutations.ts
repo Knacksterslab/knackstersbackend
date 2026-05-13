@@ -53,6 +53,21 @@ export class HoursMutations {
     });
   }
 
+  /**
+   * Top up the active period's bonusHours when a client upgrades mid-cycle.
+   * Only called for upgrades — downgrades take effect at the next billing cycle.
+   */
+  static async topUpCurrentBalance(userId: string, additionalHours: number) {
+    const balance = await prisma.hoursBalance.findFirst({
+      where: { userId, periodEnd: { gte: new Date() } },
+    });
+    if (!balance) return null;
+    return prisma.hoursBalance.update({
+      where: { id: balance.id },
+      data: { bonusHours: balance.bonusHours + additionalHours },
+    });
+  }
+
   static async resetMonthlyBalance(userId: string) {
     const currentBalance = await prisma.hoursBalance.findFirst({
       where: {

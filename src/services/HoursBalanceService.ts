@@ -31,6 +31,10 @@ export class HoursBalanceService {
     return HoursMutations.updateUsage(balanceId, minutesUsed);
   }
 
+  async topUpCurrentBalance(userId: string, additionalHours: number) {
+    return HoursMutations.topUpCurrentBalance(userId, additionalHours);
+  }
+
   async resetMonthlyBalance(userId: string) {
     return HoursMutations.resetMonthlyBalance(userId);
   }

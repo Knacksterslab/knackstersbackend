@@ -294,8 +294,11 @@ model Subscription {
   status              SubscriptionStatus  @default(ACTIVE)
   billingInterval     BillingInterval     @default(MONTHLY) @map("billing_interval")
   
-  // Pricing
+  // Pricing — priceAmount holds what was charged for the current period;
+  // recurringPriceAmount holds the ongoing standard rate (non-null when an
+  // onboarding rate applies, e.g. FLEX_RETAINER first month).
   priceAmount         Decimal             @map("price_amount") @db.Decimal(10, 2)
+  recurringPriceAmount Decimal?           @map("recurring_price_amount") @db.Decimal(10, 2)
   currency            String              @default("USD")
   
   // Hours allocation

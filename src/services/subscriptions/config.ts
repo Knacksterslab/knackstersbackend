@@ -13,8 +13,9 @@ export const PLAN_CONFIG = {
     trialOnly: true, // One per company, one domain, 30-day validity
   },
   FLEX_RETAINER: {
-    monthlyPrice: 700000, // $7,000 in cents
-    yearlyPrice: 7000000, // $70,000 in cents
+    onboardingPrice: 350000,  // $3,500 in cents — first month only
+    monthlyPrice: 700000,     // $7,000 in cents — ongoing standard rate
+    yearlyPrice: 7000000,     // $70,000 in cents
     monthlyHours: 100,
     isFree: false,
     trialOnly: false,
