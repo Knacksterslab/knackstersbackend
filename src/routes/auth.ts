@@ -38,7 +38,7 @@ router.patch('/onboarding', requireAuth, async (req: AuthRequest, res: Response)
     if (!req.session) return ApiResponse.unauthorized(res);
 
     const userId = await req.session.getUserId();
-    const { selectedSolution, solutionNotes } = req.body;
+    const { selectedSolution, solutionNotes, fullName } = req.body;
 
     if (!selectedSolution) {
       return ApiResponse.error(res, 'selectedSolution is required', 400);
@@ -57,6 +57,8 @@ router.patch('/onboarding', requireAuth, async (req: AuthRequest, res: Response)
       data: {
         selectedSolution: selectedSolution as SolutionType,
         selectedSolutionNotes: solutionNotes || null,
+        // Only overwrite if a valid full name was submitted (Google users fixing their name)
+        ...(fullName?.trim() ? { fullName: fullName.trim() } : {}),
       },
       select: { selectedSolution: true },
     });
